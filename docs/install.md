@@ -45,7 +45,7 @@ Put these in `.env` (all are optional):
 | `COMPOSE_PROFILES=zfs` | Start the [ZFS sidecar](/zfs). |
 | `HOGWATCH_VERSION` | Pin an image version instead of `latest`. |
 
-The image is published on GitHub Container Registry (`ghcr.io/vinrosso/hogwatch`) and Docker Hub, with the tags `latest`, `X`, `X.Y` and `X.Y.Z`. To pull from Docker Hub, change the `image:` lines in a `compose.override.yaml`.
+Both images (`hogwatch` and `zfs-reader`) are published on GitHub Container Registry (`ghcr.io/vinrosso/...`) and on Docker Hub (`vinrosso/...`). `hogwatch` has the tags `latest`, `X`, `X.Y` and `X.Y.Z`. The compose file pulls from GHCR; to pull from Docker Hub, change the `image:` lines in a `compose.override.yaml`.
 
 ### More folders
 

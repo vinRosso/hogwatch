@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 source scripts/versions.env
 
 exec docker run --rm --privileged \
-  -v "$PWD":/src -w /src \
+  -v "$PWD":/src -w /src -e GOFLAGS=-buildvcs=false \
   -v hogwatch-gomod:/go/pkg/mod -v hogwatch-gocache:/root/.cache/go-build \
   "golang:${GO_VERSION}-bookworm" \
-  go test -buildvcs=false -tags integration -race -count=1 ./...
+  go test -tags integration -race -count=1 ./...
