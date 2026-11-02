@@ -1,7 +1,7 @@
 name: hogwatch
 
 x-base: &base
-  image: ghcr.io/vinrosso/hogwatch:${HOGWATCH_VERSION:-latest}
+  image: vinrosso/hogwatch:${HOGWATCH_VERSION:-latest}
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -43,7 +43,7 @@ services:
 
   hogwatch-zfs: # on with COMPOSE_PROFILES=zfs in .env
     <<: *base
-    image: ghcr.io/vinrosso/zfs-reader:${ZFS_READER_TAG:-ubuntu-24.04}
+    image: vinrosso/zfs-reader:${ZFS_READER_TAG:-ubuntu-24.04}
     container_name: hogwatch-zfs
     restart: unless-stopped
     profiles: [zfs]

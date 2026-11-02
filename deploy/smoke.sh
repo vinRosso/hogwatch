@@ -32,7 +32,7 @@ winpath() { if pwd -W >/dev/null 2>&1; then (cd "$1" && pwd -W); else (cd "$1" &
 
 export HOGWATCH_VERSION=smoke HOGWATCH_PORT=$PORT
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
-docker tag "$IMAGE" ghcr.io/vinrosso/hogwatch:smoke
+docker tag "$IMAGE" vinrosso/hogwatch:smoke
 
 PASSED=0
 pass() { PASSED=$((PASSED + 1)); echo "PASS  $*"; }
