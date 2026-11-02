@@ -33,3 +33,18 @@ func TestAvailableMounts(t *testing.T) {
 		t.Errorf("no mounts: got %#v, want empty non-nil", got)
 	}
 }
+
+func TestAvailableMountsStacked(t *testing.T) {
+	in := []fsx.Mount{
+		{MountPoint: "/host/m", FSType: "autofs"},
+		{MountPoint: "/host/a", FSType: "ext4", ReadOnly: true},
+		{MountPoint: "/host/m", FSType: "binfmt_misc", ReadOnly: true},
+	}
+	want := []db.AvailableMount{
+		{ContainerPath: "/host/a", HostPath: "/a", FSType: "ext4", ReadOnly: true},
+		{ContainerPath: "/host/m", HostPath: "/m", FSType: "binfmt_misc", ReadOnly: true},
+	}
+	if got := AvailableMounts(in, "/host"); !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v\nwant %+v", got, want)
+	}
+}
