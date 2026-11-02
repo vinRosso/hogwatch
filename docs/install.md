@@ -44,6 +44,8 @@ Put these in `.env` (all are optional):
 | `HOGWATCH_BASE_URL` | The public address, for example `https://disk.example.com`. Needed behind a reverse proxy and for sign-in links. |
 | `COMPOSE_PROFILES=zfs` | Start the [ZFS sidecar](/zfs). |
 | `HOGWATCH_VERSION` | Pin an image version instead of `latest`. |
+| `DATA_PATH` | Where the database lives, default `./data`. Use an absolute path to keep it elsewhere. |
+| `ZFS_PATH` | Where the ZFS reader writes, default `./zfs`. |
 
 Both images (`hogwatch` and `zfs-reader`) are published on GitHub Container Registry (`ghcr.io/vinrosso/...`) and on Docker Hub (`vinrosso/...`). `hogwatch` has the tags `latest`, `X`, `X.Y` and `X.Y.Z`. The compose file pulls from GHCR; to pull from Docker Hub, change the `image:` lines in a `compose.override.yaml`.
 

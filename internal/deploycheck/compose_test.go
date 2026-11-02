@@ -21,10 +21,20 @@ type volume struct {
 	CreateHostPath bool // true when the file does not say false (the compose default)
 }
 
+// splitShortVolume splits src:dst[:opts]; a source written as ${VAR:-default} keeps its colon.
+func splitShortVolume(s string) []string {
+	if strings.HasPrefix(s, "${") {
+		if i := strings.Index(s, "}"); i > 0 && strings.HasPrefix(s[i+1:], ":") {
+			return append([]string{s[:i+1]}, strings.Split(s[i+2:], ":")...)
+		}
+	}
+	return strings.Split(s, ":")
+}
+
 func (v *volume) UnmarshalYAML(n *yaml.Node) error {
 	v.CreateHostPath = true
 	if n.Kind == yaml.ScalarNode { // src:dst[:opts]
-		parts := strings.Split(n.Value, ":")
+		parts := splitShortVolume(n.Value)
 		if len(parts) < 2 {
 			return fmt.Errorf("volume %q is not src:dst", n.Value)
 		}
@@ -60,6 +70,12 @@ func (v *volume) UnmarshalYAML(n *yaml.Node) error {
 	}
 	return nil
 }
+
+// The state folders default to ./data and ./zfs and can be moved with DATA_PATH and ZFS_PATH in .env.
+const (
+	dataSrc = "${DATA_PATH:-./data}"
+	zfsSrc  = "${ZFS_PATH:-./zfs}"
+)
 
 // service lists every key compose.yaml may use. loadCompose decodes strictly,
 // so a key that is not here (pid, ipc, userns_mode, volumes_from, sysctls,
@@ -185,8 +201,8 @@ func violations(c compose) []string {
 				if v.Source != scanSource || !v.ReadOnly || v.Propagation != "rslave" || v.CreateHostPath {
 					bad("scanner: host bind %s must come from SCAN_PATH, read-only, rslave and create_host_path: false", v.Target)
 				}
-			case v.Target == "/data" && v.Source == "./data":
-			case v.Target == "/zfs" && v.Source == "./zfs" && v.ReadOnly:
+			case v.Target == "/data" && v.Source == dataSrc:
+			case v.Target == "/zfs" && v.Source == zfsSrc && v.ReadOnly:
 			default:
 				bad("scanner: unexpected volume %s:%s", v.Source, v.Target)
 			}
@@ -207,7 +223,7 @@ func violations(c compose) []string {
 		if len(s.CapAdd) != 0 || (s.User != "" && s.User != "10001:10001") {
 			bad("web: must run as the image user without added capabilities")
 		}
-		if len(s.Volumes) != 1 || s.Volumes[0].Target != "/data" || s.Volumes[0].Source != "./data" || s.Volumes[0].ReadOnly {
+		if len(s.Volumes) != 1 || s.Volumes[0].Target != "/data" || s.Volumes[0].Source != dataSrc || s.Volumes[0].ReadOnly {
 			bad("web: /data must be its only mount, got %v", s.Volumes)
 		}
 		if !slices.Equal(s.Tmpfs, []string{"/tmp:size=512m"}) {
@@ -228,7 +244,7 @@ func violations(c compose) []string {
 			bad("init: network_mode %q, want none", s.NetworkMode)
 		}
 		for _, v := range s.Volumes {
-			if (v.Target != "/data" || v.Source != "./data") && (v.Target != "/zfs" || v.Source != "./zfs") {
+			if (v.Target != "/data" || v.Source != dataSrc) && (v.Target != "/zfs" || v.Source != zfsSrc) {
 				bad("init: unexpected volume %s:%s", v.Source, v.Target)
 			}
 		}
@@ -241,8 +257,8 @@ func violations(c compose) []string {
 		if !slices.Equal(s.Devices, []string{"/dev/zfs"}) || s.NetworkMode != "none" {
 			bad("zfs: needs /dev/zfs and no network")
 		}
-		if len(s.Volumes) != 1 || s.Volumes[0].Source != "./zfs" || s.Volumes[0].Target != "/out" {
-			bad("zfs: only ./zfs:/out may be mounted, got %v", s.Volumes)
+		if len(s.Volumes) != 1 || s.Volumes[0].Source != zfsSrc || s.Volumes[0].Target != "/out" {
+			bad("zfs: only the zfs folder at /out may be mounted, got %v", s.Volumes)
 		}
 		if len(s.CapAdd) != 0 {
 			bad("zfs: must not add capabilities")

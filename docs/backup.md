@@ -1,6 +1,6 @@
 # Backup
 
-Everything lives in `./data`.
+Everything lives in `./data` (or `DATA_PATH` in `.env`).
 
 - `hogwatch.db` holds users, roots, settings, jobs and the scan history. **This is what you back up.**
 - `scans/` holds one database per scan. It can be rebuilt by scanning again, but history is in `hogwatch.db`.
