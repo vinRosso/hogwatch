@@ -30,6 +30,8 @@
   let size = $state({ w: 0, h: 0 })
   let rects: Rect[] = []
   let hovered: Rect | null = null
+  // The hover tooltip: the block's full name at the pointer, in canvas coordinates.
+  let tip = $state.raw<{ x: number; y: number; name: string } | null>(null)
   // The resolved colors of the user scale and the unowned grey, by token name.
   const palette = new Map<string, string>()
   let ink = '#000'
@@ -49,6 +51,8 @@
   }
 
   const rgb = (hex: string): [number, number, number] => {
+    const c = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(hex)
+    if (c) return [+c[1], +c[2], +c[3]]
     const m = /^#([0-9a-f]{6})$/i.exec(hex)
     if (!m) return [136, 136, 136]
     const n = parseInt(m[1], 16)
@@ -106,8 +110,11 @@
       const container = r.node.children.length > 0
       const k = r.depth === 1 ? 0 : Math.min(0.5, 0.1 * (r.sib + 1))
       const fill = container ? mix(base, card, 0.35) : mix(base, card, k)
+      // The corner radius shrinks with the short side.
+      const short = Math.min(r.w, r.h)
+      const radius = Math.min(5, short * 0.25)
       const outline = new Path2D()
-      outline.roundRect(r.x + 0.5, r.y + 0.5, Math.max(r.w - 1, 0), Math.max(r.h - 1, 0), 5)
+      outline.roundRect(r.x + 0.5, r.y + 0.5, Math.max(r.w - 1, 0), Math.max(r.h - 1, 0), radius)
       ctx.fillStyle = fill
       ctx.fill(outline)
       // Hatched: everything that is not a folder (extension blocks, other files, the rest).
@@ -126,7 +133,8 @@
         ctx.restore()
       }
       ctx.strokeStyle = ink
-      ctx.lineWidth = r === hovered ? 2 : 1
+      // Thinner outline on small blocks: 0.5px up to 10px wide, 1px from 20px.
+      ctx.lineWidth = r === hovered ? 2 : Math.min(1, Math.max(0.5, short / 20))
       ctx.stroke(outline)
       if (r.label) {
         ctx.fillStyle = dark(base) && !container && k === 0 ? paper : ink
@@ -149,6 +157,7 @@
     if (tree && !session.me?.is_admin) paintBlocks(tree)
     rects = tree && size.w ? layoutTreemap(tree, size.w, size.h, depth, owner) : []
     hovered = null
+    tip = null
     draw()
   }
 
@@ -200,6 +209,7 @@
         hovered = r
         draw()
       }
+      tip = r ? { x, y, name: r.name } : null
     })
   }
 
@@ -227,6 +237,7 @@
     const next = hovered ? neighbour(leaves, hovered, d) : (leaves[0] ?? null)
     if (next) {
       hovered = next
+      tip = { x: next.x + next.w / 2, y: next.y + next.h / 2, name: next.name }
       draw()
     }
   }
@@ -251,11 +262,24 @@
     onpointermove={move}
     onpointerleave={() => {
       hovered = null
+      tip = null
       draw()
     }}
     onclick={click}
     onkeydown={key}
   ></canvas>
+  {#if tip}
+    {@const flipX = tip.x > size.w / 2}
+    {@const flipY = tip.y > size.h / 2}
+    <div
+      class="tip"
+      style:left={`${tip.x + 10 + (flipX ? -10 : 10)}px`}
+      style:top={`${tip.y + 10 + (flipY ? -10 : 10)}px`}
+      style:transform={`translate(${flipX ? '-100%' : '0'}, ${flipY ? '-100%' : '0'})`}
+    >
+      {tip.name}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -274,6 +298,22 @@
   canvas {
     display: block;
     cursor: pointer;
+  }
+  .tip {
+    position: absolute;
+    z-index: 1;
+    /* max-content keeps the width from shrinking to the room left by the pointer near the right edge. */
+    width: max-content;
+    max-width: min(360px, 70%);
+    padding: 4px 8px;
+    border: var(--edge);
+    border-radius: var(--r);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    pointer-events: none;
   }
   .wrap :global(.empty) {
     position: absolute;

@@ -44,6 +44,16 @@ describe('layoutTreemap', () => {
       }
   })
 
+  it('gives every block its full name, even one too small to label', () => {
+    const long = 'a-very-long-folder-name-that-will-not-fit-in-the-block.iso'
+    const rects = layoutTreemap(root([leaf(long, 950), leaf('tiny', 50)]), 300, 200, 1)
+    const tiny = rects.find((r) => r.node.name === 'tiny')
+    expect(tiny?.label).toBeNull()
+    expect(tiny?.name).toBe('tiny')
+    const big = rects.find((r) => r.node.name === long)!
+    expect(big.name).toBe(big.label)
+  })
+
   it('lays out 2000 nodes quickly', () => {
     const kids = Array.from({ length: 2000 }, (_, i) => leaf(`n${i}`, (i % 97) + 1))
     const t0 = performance.now()

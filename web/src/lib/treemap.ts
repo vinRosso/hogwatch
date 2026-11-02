@@ -16,6 +16,8 @@ export type Rect = {
   owner: number | null
   /** Sibling index inside the parent, used to lighten nested levels. */
   sib: number
+  /** The block's full name, for the hover tooltip; `label` is cut to fit and dropped on small blocks. */
+  name: string
   label: string | null
   /** File count and size, drawn right-aligned in the block. */
   meta: string | null
@@ -23,6 +25,8 @@ export type Rect = {
 
 const PAD_TOP = 18
 const PAD_INNER = 3
+/** Crowded small parents get a thinner gap between their children, so the blocks keep their size. */
+const PAD_INNER_MIN = 0
 /** Rects thinner than this are dropped: drawn, they come out as stray lines. */
 const MIN_SIDE = 2
 
@@ -67,7 +71,7 @@ export function layoutTreemap(
     // d3 sets a node's box before asking for its padding. A strip on a box too small
     // to label would leave the children no room, and d3 then puts them below the box.
     .paddingTop((d) => (d.depth > 0 && d.depth < depth && d.children && labelled(d.x1 - d.x0, d.y1 - d.y0) ? PAD_TOP : 0))
-    .paddingInner(PAD_INNER)(h0)
+    .paddingInner((d) => Math.min(PAD_INNER, Math.max(PAD_INNER_MIN, Math.min(d.x1 - d.x0, d.y1 - d.y0) / 40)))(h0)
 
   const out: Rect[] = []
   const ownerAt = new Map<TreemapNode, number | null>()
@@ -94,6 +98,7 @@ export function layoutTreemap(
       parent: p.depth === 0 ? root : p.data,
       owner,
       sib,
+      name: blockName(n),
       label: labelled(rw, rh) ? blockName(n) : null,
       meta: labelled(rw, rh) ? blockMeta(n) : null,
     })
