@@ -9,6 +9,7 @@ if (!external && !dir) throw new Error('HW_E2E_DIR is not set; run `make test-e2
 
 export default defineConfig({
   testDir: 'e2e',
+  testIgnore: 'docs-shots.spec.ts', // run by `make docs-shots`
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],

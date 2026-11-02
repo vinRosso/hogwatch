@@ -31,7 +31,12 @@ test('a user browses hostile names safely, exports, and an admin sees the rankin
   await expect(page.getByRole('navigation', { name: 'Location' })).toContainText('media')
 
   // Back to the anchor, and read the hostile names in the List tab.
+  // The treemap draws two levels, so the click lands on movies inside media: go up twice.
+  const location = page.getByRole('navigation', { name: 'Location' })
   await page.getByRole('button', { name: 'Up one level' }).click()
+  await expect(location).not.toContainText('movies')
+  await page.getByRole('button', { name: 'Up one level' }).click()
+  await expect(location).not.toContainText('media')
   const list = page.getByRole('list', { name: 'List' })
   await expect(list.getByText('a␊b')).toBeVisible()
   await expect(list.getByText('x\\u{202E}y')).toBeVisible()
@@ -64,8 +69,8 @@ test('a user browses hostile names safely, exports, and an admin sees the rankin
   await expect(page).toHaveURL(/\/admin\/users$/)
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
   await expect(page.getByRole('columnheader', { name: /Growth/ })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'alice', exact: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'admin', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'alice', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'admin', exact: true })).toBeVisible()
 
   expect(dialogs).toEqual([])
 })
