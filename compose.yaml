@@ -43,7 +43,7 @@ services:
 
   hogwatch-zfs: # on with COMPOSE_PROFILES=zfs in .env
     <<: *base
-    image: vinrosso/zfs-reader:${ZFS_READER_TAG:-ubuntu24}
+    image: vinrosso/zfs-reader:${HOGWATCH_VERSION:-latest}
     container_name: hogwatch-zfs
     restart: unless-stopped
     profiles: [zfs]

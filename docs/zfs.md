@@ -8,10 +8,11 @@ Add to `.env`:
 
 ```bash
 COMPOSE_PROFILES=zfs
-ZFS_READER_TAG=debian13
 ```
 
-Pick the tag that matches your host's ZFS userland: `ubuntu24`, `debian12`, `debian13` or `proxmox8`. The image gets `/dev/zfs` and nothing else. All tags are amd64 and arm64 except `proxmox8`, which is amd64 only because Proxmox publishes no arm64 packages. Each tag is also published as `X.Y.Z-<tag>` (for example `0.1.0-debian13`) to pin an exact release. To build your own, see `contrib/zfs-reader` in the repository.
+There is one image, `vinrosso/zfs-reader`, for amd64 and arm64. It carries the newest OpenZFS userland (from Debian trixie-backports), which talks to older kernel modules too: it only runs `zfs list` with long-standing properties. It gets `/dev/zfs` and nothing else.
+
+If `zfs list` fails inside the container on your host (check `docker compose logs hogwatch-zfs`), use the systemd timer below, which runs your host's own `zfs`, and open an issue with your `zfs version` output.
 
 The reader runs as an unprivileged user. If `/dev/zfs` is not accessible to it on your host, run the container as root; it still only runs `zfs list`. At start it prints a `WARNING` if `zfs allow` delegates rights to `everyone` or `user root`.
 
