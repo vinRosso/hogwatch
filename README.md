@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/public/images/hogwatch-logo.svg" alt="Hogwatch logo" width="110" /></p>
+
 # Hogwatch
 
 A self-hosted disk usage analyzer in the spirit of TreeSize and WinDirStat, delivered as a web app and deployed with Docker Compose.

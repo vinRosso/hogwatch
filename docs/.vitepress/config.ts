@@ -6,7 +6,9 @@ export default defineConfig({
   base: '/hogwatch/',
   cleanUrls: true,
   lastUpdated: false,
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/hogwatch/images/hogwatch-logo.svg' }]],
   themeConfig: {
+    logo: '/images/hogwatch-logo.svg',
     nav: [
       { text: 'Install', link: '/install' },
       { text: 'GitHub', link: 'https://github.com/vinRosso/hogwatch' },

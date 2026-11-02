@@ -15,7 +15,7 @@
 </script>
 
 <header class="bar">
-  <a class="brand" href="/browse">{t.appName}</a>
+  <a class="brand" href="/browse"><img src="/favicon.svg" alt="" width="30" height="27" />{t.appName}</a>
   <nav aria-label={t.nav.main}>
     {#each links as l (l.href)}
       <a href={l.href} class:on={active(l.href)} aria-current={active(l.href) ? 'page' : undefined}>{l.label}</a>
@@ -37,6 +37,9 @@
     flex-wrap: wrap;
   }
   .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font: 600 22px/1 var(--serif);
     color: var(--ink);
     text-decoration: none;
