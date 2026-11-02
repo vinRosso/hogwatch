@@ -45,6 +45,8 @@ Put these in `.env` (all are optional):
 | `COMPOSE_PROFILES=zfs` | Start the [ZFS sidecar](/zfs). |
 | `HOGWATCH_VERSION` | Pin an image version instead of `latest`. |
 
+The image is published on GitHub Container Registry (`ghcr.io/vinrosso/hogwatch`) and Docker Hub, with the tags `latest`, `X`, `X.Y` and `X.Y.Z`. To pull from Docker Hub, change the `image:` lines in a `compose.override.yaml`.
+
 ### More folders
 
 Add a `compose.override.yaml` next to `compose.yaml`:
@@ -62,7 +64,11 @@ Keep every scan folder read-only. The scanner refuses a writable one.
 
 The session cookie is `Secure`, so signing in over plain HTTP on a LAN address looks like a login loop. Put Hogwatch behind a TLS proxy (Caddy, nginx, Traefik) and set `HOGWATCH_BASE_URL` to the public `https://` address. `http://localhost` works without TLS.
 
-A proxy on the Docker host reaches the container through Docker's bridge, so Hogwatch sees the bridge gateway as the client, not the proxy. Set `HOGWATCH_TRUSTED_PROXIES` to that address, which you can read with `docker network inspect hogwatch_default --format '{{(index .IPAM.Config 0).Gateway}}'` (usually `172.x.0.1`). Without it every visitor shares one address and the login limiter treats them as one person. A proxy that runs in Docker itself should join the same network and publish no port; set `HOGWATCH_TRUSTED_PROXIES` to its address.
+A proxy on the Docker host reaches the container through Docker's bridge, so Hogwatch sees the bridge gateway as the client, not the proxy. Set `HOGWATCH_TRUSTED_PROXIES` to that address, which you can read with the command below (usually `172.x.0.1`). Without it every visitor shares one address and the login limiter treats them as one person. A proxy that runs in Docker itself should join the same network and publish no port; set `HOGWATCH_TRUSTED_PROXIES` to its address.
+
+```bash
+docker network inspect hogwatch_default --format '{{(index .IPAM.Config 0).Gateway}}'
+```
 
 ### Upgrade
 

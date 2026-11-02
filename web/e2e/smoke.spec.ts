@@ -20,7 +20,7 @@ test('a user browses hostile names safely, exports, and an admin sees the rankin
 
   await login(page, 'alice', 'e2e-password-1')
   await expect(page).toHaveURL(/\/browse\/\d+\.\d+/)
-  const canvas = page.locator('canvas')
+  const canvas = page.getByRole('img', { name: /Treemap of/ })
   await expect(canvas).toBeVisible()
   const box = await canvas.boundingBox()
   expect(box!.width).toBeGreaterThan(0)
