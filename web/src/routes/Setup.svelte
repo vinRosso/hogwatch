@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AuthLayout from '../components/shell/AuthLayout.svelte'
   import Button from '../components/ui/Button.svelte'
   import Card from '../components/ui/Card.svelte'
   import Field from '../components/ui/Field.svelte'
@@ -43,7 +44,7 @@
   }
 </script>
 
-<main class="page">
+<AuthLayout>
   <Card title={t.setup.title}>
     {#if done}
       <p>{t.setup.done}</p>
@@ -61,12 +62,4 @@
       </form>
     {/if}
   </Card>
-</main>
-
-<style>
-  .page {
-    max-width: 420px;
-    margin: 10vh auto;
-    padding: 0 16px;
-  }
-</style>
+</AuthLayout>
