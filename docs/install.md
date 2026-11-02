@@ -47,7 +47,7 @@ Put these in `.env` (all are optional):
 | `DATA_PATH` | Where the database lives, default `./data`. Use an absolute path to keep it elsewhere. |
 | `ZFS_PATH` | Where the ZFS reader writes, default `./zfs`. |
 
-Both images (`hogwatch` and `zfs-reader`) are published on Docker Hub (`vinrosso/hogwatch` and `vinrosso/zfs-reader`). `hogwatch` has the tags `latest`, `X`, `X.Y` and `X.Y.Z`.
+Both images (`hogwatch` and `hogwatch-zfs`) are published on Docker Hub (`vinrosso/hogwatch` and `vinrosso/hogwatch-zfs`). `hogwatch` has the tags `latest`, `X`, `X.Y` and `X.Y.Z`.
 
 ### More folders
 

@@ -10,7 +10,7 @@ Add to `.env`:
 COMPOSE_PROFILES=zfs
 ```
 
-There is one image, `vinrosso/zfs-reader`, for amd64 and arm64. It carries the newest OpenZFS userland (from Debian trixie-backports), which talks to older kernel modules too: it only runs `zfs list` with long-standing properties. It gets `/dev/zfs` and nothing else.
+There is one image, `vinrosso/hogwatch-zfs`, for amd64 and arm64. It carries the newest OpenZFS userland (from Debian trixie-backports), which talks to older kernel modules too: it only runs `zfs list` with long-standing properties. It gets `/dev/zfs` and nothing else.
 
 If `zfs list` fails inside the container on your host (check `docker compose logs hogwatch-zfs`), use the systemd timer below, which runs your host's own `zfs`, and open an issue with your `zfs version` output.
 
