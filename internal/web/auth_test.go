@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/vinRosso/hogwatch/internal/auth/local"
 	"github.com/vinRosso/hogwatch/internal/auth/session"
@@ -178,8 +177,8 @@ func TestLogout(t *testing.T) {
 	}
 }
 
-func setupBody(token, user, pw string) string {
-	b, _ := json.Marshal(map[string]string{"token": token, "username": user, "password": pw})
+func setupBody(user, pw string) string {
+	b, _ := json.Marshal(map[string]string{"username": user, "password": pw})
 	return string(b)
 }
 
@@ -201,11 +200,7 @@ func TestSetup_Flow(t *testing.T) {
 	if !status() {
 		t.Fatal("setup not needed with no admin")
 	}
-	tok, _ := e.setup.Current()
-	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("nope", "boss", "long enough pw")}); w.Code != 401 {
-		t.Fatalf("wrong token: %d", w.Code)
-	}
-	w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(tok, "Boss", "long enough pw")})
+	w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("Boss", "long enough pw")})
 	if w.Code != 200 || cookieOf(w) == nil {
 		t.Fatalf("setup: %d %s", w.Code, w.Body)
 	}
@@ -218,7 +213,7 @@ func TestSetup_Flow(t *testing.T) {
 	if status() {
 		t.Fatal("setup still needed")
 	}
-	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(tok, "two", "long enough pw")}); w.Code != 404 {
+	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("two", "long enough pw")}); w.Code != 404 {
 		t.Fatalf("second setup: %d", w.Code)
 	}
 }
@@ -226,14 +221,13 @@ func TestSetup_Flow(t *testing.T) {
 func TestSetup_Race(t *testing.T) {
 	e := newEnv(t)
 	e.clearAdmins()
-	tok, _ := e.setup.Current()
 	var wg sync.WaitGroup
 	codes := make([]int, 8)
 	for i := range codes {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			hr := httptest.NewRequest("POST", "/api/v1/setup", strings.NewReader(setupBody(tok, fmt.Sprintf("admin%d", i), "long enough pw")))
+			hr := httptest.NewRequest("POST", "/api/v1/setup", strings.NewReader(setupBody(fmt.Sprintf("admin%d", i), "long enough pw")))
 			hr.RemoteAddr = fmt.Sprintf("198.51.100.%d:1", i+1)
 			hr.Header.Set(csrfHeader, "1")
 			hr.Header.Set("Content-Type", "application/json")
@@ -260,38 +254,24 @@ func TestSetup_Race(t *testing.T) {
 	}
 }
 
-func TestSetup_ExpiredToken(t *testing.T) {
-	e := newEnv(t)
-	e.clearAdmins()
-	tok, _ := e.setup.Current()
-	e.now = e.now.Add(time.Hour)
-	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(tok, "boss", "long enough pw")}); w.Code != 401 {
-		t.Fatalf("expired token: %d", w.Code)
-	}
-}
-
 func TestSetup_RateLimited(t *testing.T) {
 	e := newEnv(t)
 	e.clearAdmins()
-	tok, _ := e.setup.Current()
 	for i := range 5 {
-		if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("bad", "boss", "long enough pw")}); w.Code != 401 {
+		if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("boss", "short")}); w.Code != 400 {
 			t.Fatalf("attempt %d: %d", i, w.Code)
 		}
 	}
-	for _, token := range []string{"bad", tok} {
-		if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(token, "boss", "long enough pw")}); w.Code != 429 {
-			t.Fatalf("locked key, token %q: %d", token, w.Code)
-		}
+	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("boss", "long enough pw")}); w.Code != 429 {
+		t.Fatalf("locked key: %d", w.Code)
 	}
 }
 
 func TestSetup_Validation(t *testing.T) {
 	e := newEnv(t)
 	e.clearAdmins()
-	tok, _ := e.setup.Current()
 	for _, c := range [][2]string{{"boss", "short"}, {"bad name!", "long enough pw"}, {"", "long enough pw"}} {
-		if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(tok, c[0], c[1])}); w.Code != 400 {
+		if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(c[0], c[1])}); w.Code != 400 {
 			t.Errorf("%v: %d", c, w.Code)
 		}
 	}

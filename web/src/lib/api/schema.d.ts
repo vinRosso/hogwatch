@@ -877,7 +877,6 @@ export interface components {
             password: string;
         };
         SetupRequest: {
-            token: string;
             username: string;
             display_name?: string;
             email?: string | null;

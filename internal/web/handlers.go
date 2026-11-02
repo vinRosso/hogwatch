@@ -27,7 +27,6 @@ type Deps struct {
 	Sessions *session.Store
 	Repo     *repo.Repo
 	Limiter  *local.Limiter
-	Setup    *local.SetupToken
 	OIDC     *oidc.Client // nil when OIDC is not configured
 	Flows    *oidc.Flows  // pending OIDC logins; nil with OIDC
 	SPA      fs.FS        // nil serves no SPA
@@ -45,7 +44,6 @@ type server struct {
 	sessions *session.Store
 	repo     *repo.Repo
 	limiter  *local.Limiter
-	setup    *local.SetupToken
 	oidc     *oidc.Client
 	flows    *oidc.Flows
 	log      *slog.Logger
@@ -100,7 +98,7 @@ func assemble(d Deps, table map[string]Access) (http.Handler, *http.ServeMux, ma
 	}
 	a := &server{
 		db: d.DB, q: dbq.New(d.DB), cfg: d.Cfg, sessions: d.Sessions, repo: d.Repo,
-		limiter: d.Limiter, setup: d.Setup, oidc: d.OIDC, flows: d.Flows, log: d.Log, now: d.Now, trusted: trusted, access: table, afterCompute: d.afterCompute,
+		limiter: d.Limiter, oidc: d.OIDC, flows: d.Flows, log: d.Log, now: d.Now, trusted: trusted, access: table, afterCompute: d.afterCompute,
 	}
 
 	mux := http.NewServeMux()

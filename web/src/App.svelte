@@ -24,8 +24,6 @@
   onMount(() => {
     installAuthRedirect()
     const off = installLinkInterception()
-    // The setup link carries its token in the fragment; send it to the setup page.
-    if (location.hash.startsWith('#token=') && router.path !== '/setup') navigate('/setup' + location.hash, { replace: true })
     if (router.path !== '/setup') void session.load()
     return off
   })

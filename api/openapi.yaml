@@ -683,9 +683,8 @@ components:
         password: { type: string, minLength: 1, maxLength: 1024 }
     SetupRequest:
       type: object
-      required: [token, username, password]
+      required: [username, password]
       properties:
-        token: { type: string, minLength: 1, maxLength: 256 }
         username: { type: string, minLength: 1, maxLength: 128 }
         display_name: { type: string, maxLength: 256 }
         email: { type: [string, "null"], maxLength: 320 }

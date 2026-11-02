@@ -2,14 +2,10 @@
   import Button from '../components/ui/Button.svelte'
   import Card from '../components/ui/Card.svelte'
   import Field from '../components/ui/Field.svelte'
+  import { onMount } from 'svelte'
   import { api, ApiError } from '../lib/api/client'
   import { t } from '../lib/i18n/en'
   import { hardNavigate } from '../lib/router.svelte'
-
-  // The token travels in the URL fragment so it never reaches a server log or
-  // Referer. Read it once, then drop it from the address bar before any request.
-  const token = new URLSearchParams(location.hash.replace(/^#/, '')).get('token') ?? ''
-  if (location.hash) history.replaceState(null, '', location.pathname + location.search)
 
   let username = $state('')
   let displayName = $state('')
@@ -19,12 +15,22 @@
   let done = $state(false)
   let busy = $state(false)
 
+  // Setup is open only while no admin exists; a later visit says so instead of showing a form.
+  onMount(() => {
+    api
+      .get<{ needed: boolean }>('/setup/status')
+      .then((s) => {
+        if (s.needed === false) done = true
+      })
+      .catch(() => {})
+  })
+
   async function submit(e: SubmitEvent) {
     e.preventDefault()
     busy = true
     error = null
     try {
-      await api.post('/setup', { token, username, display_name: displayName, email: email || null, password })
+      await api.post('/setup', { username, display_name: displayName, email: email || null, password })
       await api.post('/auth/login', { username, password })
       hardNavigate('/')
     } catch (err) {
@@ -42,8 +48,6 @@
     {#if done}
       <p>{t.setup.done}</p>
       <a href="/login">{t.setup.goLogin}</a>
-    {:else if !token}
-      <p>{t.setup.noToken}</p>
     {:else}
       <form onsubmit={submit}>
         <Field label={t.setup.username}><input bind:value={username} autocomplete="username" required /></Field>

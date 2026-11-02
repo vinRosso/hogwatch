@@ -212,8 +212,7 @@ func TestAdminCursors_Tampered(t *testing.T) {
 func TestSetup_StillWorksAfterM8(t *testing.T) {
 	e := newEnv(t)
 	e.clearAdmins()
-	tok, _ := e.setup.Current()
-	w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(tok, "boss", "long enough pw")})
+	w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("boss", "long enough pw")})
 	if w.Code != 200 {
 		t.Fatalf("setup: %d %s", w.Code, w.Body)
 	}
@@ -232,7 +231,7 @@ func TestSetup_StillWorksAfterM8(t *testing.T) {
 	}
 	var u map[string]any
 	_ = json.Unmarshal(cw.Body.Bytes(), &u)
-	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody(tok, "again", "long enough pw")}); w.Code != 404 {
+	if w := e.do(req{method: "POST", path: "/api/v1/setup", body: setupBody("again", "long enough pw")}); w.Code != 404 {
 		t.Fatalf("setup after an admin exists: %d", w.Code)
 	}
 }

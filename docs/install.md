@@ -17,8 +17,9 @@ docker compose up -d
 docker compose logs hogwatch-web
 ```
 
-The log prints a one-time setup link. If it starts with `/setup`, put `http://localhost:8080` (or your `HOGWATCH_BASE_URL`) in front of it; on a headless server use an SSH tunnel to port 8080. Open it in a browser, choose a name and password for the first admin and you are in.
-If you missed it, create the admin from the command line instead:
+Open `http://localhost:8080` (or your `HOGWATCH_BASE_URL`) in a browser; on a headless server use an SSH tunnel to port 8080. While no administrator exists, the sign-in page sends you to the setup page. Choose a name and password for the first admin and you are in. **Whoever opens that page first becomes the admin**, so do this before exposing the port or the reverse proxy to others. The log also prints the setup address.
+
+To create the admin from the command line instead:
 
 ```bash
 docker compose exec hogwatch-web /hogwatch user create --username admin --admin

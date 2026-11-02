@@ -1036,7 +1036,6 @@ type SetupRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
 	Email       *string `json:"email,omitempty"`
 	Password    string  `json:"password"`
-	Token       string  `json:"token"`
 	Username    string  `json:"username"`
 }
 

@@ -34,7 +34,6 @@ export const t = {
     invalid: 'Wrong username or password.',
     failed: 'Sign-in failed. Try again.',
     tooMany: (secs: number) => `Too many attempts. Try again in ${secs} s.`,
-    setupHint: 'No administrator exists yet. Open the setup link printed in the server log.',
   },
   oidcError: {
     ...oidcError,
@@ -47,7 +46,6 @@ export const t = {
     email: 'Email (optional)',
     password: 'Password',
     submit: 'Create administrator',
-    noToken: 'Open the setup link printed in the server log.',
     done: 'Setup is already done',
     failed: 'Setup failed. Check the values and try again.',
     goLogin: 'Go to sign in',

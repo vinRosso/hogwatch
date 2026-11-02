@@ -14,10 +14,9 @@ import { hardNavigate } from '../lib/router.svelte'
 import Setup from './Setup.svelte'
 
 beforeEach(() => {
-  vi.mocked(api.get).mockReset().mockResolvedValue({ items: [] } as never)
+  vi.mocked(api.get).mockReset().mockResolvedValue({ needed: true } as never)
   vi.mocked(api.post).mockReset()
   vi.mocked(hardNavigate).mockReset()
-  history.replaceState(null, '', '/setup#token=abc')
 })
 
 async function submit() {
@@ -26,15 +25,14 @@ async function submit() {
   await fireEvent.submit(screen.getByRole('button', { name: t.setup.submit }))
 }
 
-it('drops the token from the address bar before any request, then posts it', async () => {
+it('posts the first admin without a token, signs in and goes home', async () => {
   vi.mocked(api.post).mockResolvedValue(undefined as never)
   render(Setup)
-  expect(location.hash).toBe('')
-  expect(api.post).not.toHaveBeenCalled()
   await submit()
   await waitFor(() => expect(api.post).toHaveBeenCalled())
   expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/setup')
-  expect(vi.mocked(api.post).mock.calls[0][1]).toMatchObject({ token: 'abc', username: 'root' })
+  expect(vi.mocked(api.post).mock.calls[0][1]).toMatchObject({ username: 'root' })
+  expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty('token')
   await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith('/'))
 })
 
@@ -45,8 +43,8 @@ it('says setup is done on a 404', async () => {
   expect(await screen.findByText(t.setup.done)).toBeTruthy()
 })
 
-it('without a token asks for the setup link', () => {
-  history.replaceState(null, '', '/setup')
+it('says setup is done when an admin already exists', async () => {
+  vi.mocked(api.get).mockResolvedValue({ needed: false } as never)
   render(Setup)
-  expect(screen.getByText(t.setup.noToken)).toBeTruthy()
+  expect(await screen.findByText(t.setup.done)).toBeTruthy()
 })

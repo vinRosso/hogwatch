@@ -91,7 +91,7 @@ func TestAccessTable_MissingMarkFailsStartup(t *testing.T) {
 func TestBuild_RouteWithoutMarkFailsStartup(t *testing.T) {
 	e := newEnv(t)
 	d := Deps{
-		DB: e.db, Cfg: e.cfg, Sessions: e.sessions, Repo: e.repo, Limiter: e.limiter, Setup: e.setup,
+		DB: e.db, Cfg: e.cfg, Sessions: e.sessions, Repo: e.repo, Limiter: e.limiter,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return e.now },
 	}
 	full := map[string]Access{}

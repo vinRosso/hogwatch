@@ -72,10 +72,9 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	sessions := session.New(mainDB, cfg.Session, now)
 	repository := repo.New(mainDB, cfg.DataDir, log)
 	defer func() { _ = repository.Close() }()
-	setup := local.NewSetupToken(now, nil)
 	deps := web.Deps{
 		DB: mainDB, Cfg: cfg, Sessions: sessions, Repo: repository, Limiter: local.NewLimiter(now),
-		Setup: setup, SPA: sub, Log: log, Now: now,
+		SPA: sub, Log: log, Now: now,
 	}
 	// Discovery is lazy, so an unreachable identity provider does not stop serve.
 	if cfg.Auth.OIDC.Issuer != "" {
@@ -95,7 +94,7 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	maintained := make(chan struct{})
 	go func() {
 		defer close(maintained)
-		maintain(mctx, mainDB, cfg, log, sessions, repository, setup, deps.Flows, now)
+		maintain(mctx, mainDB, cfg, log, sessions, repository, deps.Flows, now)
 	}()
 	// Registered after the repo and database closers, so it runs first.
 	defer func() { stopMaintain(); <-maintained }()
@@ -113,11 +112,11 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// maintain runs once at start and then every minute: it keeps the setup token
-// alive while no admin exists, drops it once one does, deletes expired
-// sessions, drops expired OIDC flows and closes generations that are no longer served.
+// maintain runs once at start and then every minute: it logs once that setup
+// is needed while no admin exists, deletes expired sessions, drops expired
+// OIDC flows and closes generations that are no longer served.
 func maintain(ctx context.Context, d *sql.DB, cfg config.Config, log *slog.Logger,
-	sessions *session.Store, repository *repo.Repo, setup *local.SetupToken, flows *oidc.Flows, now func() time.Time) {
+	sessions *session.Store, repository *repo.Repo, flows *oidc.Flows, now func() time.Time) {
 	q := dbq.New(d)
 	logged := false
 	tick := func() {
@@ -125,18 +124,10 @@ func maintain(ctx context.Context, d *sql.DB, cfg config.Config, log *slog.Logge
 		switch {
 		case err != nil:
 			log.Error("count admins", "err", err)
-		case n > 0:
-			setup.Invalidate()
-		default:
-			tok, exp := setup.Current()
-			if !logged || tok == "" || !exp.After(now()) {
-				if logged || tok == "" {
-					tok = setup.Rotate()
-				}
-				logged = true
-				log.Warn("setup required: open the URL to create the first admin",
-					"url", strings.TrimRight(cfg.BaseURL, "/")+"/setup#token="+tok, "valid_for", local.SetupTokenTTL.String())
-			}
+		case n == 0 && !logged:
+			logged = true
+			log.Warn("setup required: open the URL to create the first admin; whoever opens it first becomes the admin",
+				"url", strings.TrimRight(cfg.BaseURL, "/")+"/setup")
 		}
 		if _, err := sessions.DeleteExpired(ctx); err != nil {
 			log.Error("delete expired sessions", "err", err)

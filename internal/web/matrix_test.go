@@ -7,7 +7,7 @@ import (
 )
 
 // publicMayReject lists public operations that legitimately answer 401 or
-// 403 themselves (bad credentials, bad setup token).
+// 403 themselves (bad credentials).
 var publicMayReject = map[string]bool{"POST /api/v1/auth/login": true, "POST /api/v1/setup": true}
 
 var queryFor = map[string]string{

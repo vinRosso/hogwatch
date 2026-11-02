@@ -5,14 +5,13 @@
   import Field from '../components/ui/Field.svelte'
   import { api, ApiError } from '../lib/api/client'
   import { t } from '../lib/i18n/en'
-  import { hardNavigate, router, safeNext } from '../lib/router.svelte'
+  import { hardNavigate, navigate, router, safeNext } from '../lib/router.svelte'
   import { session } from '../lib/session.svelte'
 
   let username = $state('')
   let password = $state('')
   let error = $state<string | null>(null)
   let busy = $state(false)
-  let setupNeeded = $state(false)
 
   const oidcCode = $derived(router.query.oidc_error)
   const oidcMessage = $derived(oidcCode ? (Object.hasOwn(t.oidcError, oidcCode) ? t.oidcError[oidcCode] : t.oidcError.unknown) : null)
@@ -21,7 +20,7 @@
     session.loadAuthConfig().catch(() => {})
     api
       .get<{ needed: boolean }>('/setup/status')
-      .then((s) => (setupNeeded = s.needed))
+      .then((s) => s.needed && navigate('/setup', { replace: true }))
       .catch(() => {})
   })
 
@@ -47,7 +46,6 @@
     <h1 class="brand">Hogwatch</h1>
     <Card title={t.login.title}>
       {#if oidcMessage}<p class="msg" role="alert">{oidcMessage}</p>{/if}
-      {#if setupNeeded}<p class="msg">{t.login.setupHint}</p>{/if}
       {#if session.authConfig?.local}
         <form onsubmit={submit}>
           <Field label={t.login.username}>

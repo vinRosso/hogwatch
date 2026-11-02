@@ -80,31 +80,3 @@ func TestHash_Concurrency(t *testing.T) {
 		t.Fatalf("peak concurrency %d", p)
 	}
 }
-
-func TestSetupToken_Expiry(t *testing.T) {
-	c := newClock()
-	s := NewSetupToken(c.now, nil)
-	tok, exp := s.Current()
-	if !exp.Equal(c.t.Add(time.Hour)) || tok == "" {
-		t.Fatalf("token %q expires %v", tok, exp)
-	}
-	c.t = c.t.Add(59*time.Minute + 59*time.Second)
-	if !s.Check(tok) {
-		t.Fatal("invalid at 59:59")
-	}
-	if s.Check(tok + "x") {
-		t.Fatal("wrong token accepted")
-	}
-	c.t = c.t.Add(time.Second)
-	if s.Check(tok) {
-		t.Fatal("valid at 1h")
-	}
-	next := s.Rotate()
-	if next == tok || !s.Check(next) || s.Check(tok) {
-		t.Fatal("rotate")
-	}
-	s.Invalidate()
-	if s.Check(next) {
-		t.Fatal("valid after Invalidate")
-	}
-}

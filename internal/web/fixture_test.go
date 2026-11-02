@@ -36,7 +36,6 @@ type env struct {
 	sessions *session.Store
 	repo     *repo.Repo
 	limiter  *local.Limiter
-	setup    *local.SetupToken
 	h        http.Handler
 	mux      *http.ServeMux
 	table    map[string]Access
@@ -75,7 +74,6 @@ func newEnv(t testing.TB, opts ...envOpt) *env {
 	e.repo = repo.New(d, dir, log)
 	t.Cleanup(func() { _ = e.repo.Close() })
 	e.limiter = local.NewLimiter(now)
-	e.setup = local.NewSetupToken(now, nil)
 
 	e.exec(`INSERT INTO scan_roots (id, name, container_path, host_path) VALUES (1, 'r', '/mnt/r', '/srv/r')`)
 	cell := func(c cube.Category) cube.Cell { return cube.Cell{Category: uint8(c)} }
@@ -113,7 +111,7 @@ func newEnv(t testing.TB, opts ...envOpt) *env {
 	}
 
 	deps := Deps{
-		DB: d, Cfg: e.cfg, Sessions: e.sessions, Repo: e.repo, Limiter: e.limiter, Setup: e.setup,
+		DB: d, Cfg: e.cfg, Sessions: e.sessions, Repo: e.repo, Limiter: e.limiter,
 		Log: log, Now: now,
 	}
 	for _, o := range opts {

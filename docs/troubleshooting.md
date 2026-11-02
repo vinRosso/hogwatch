@@ -24,6 +24,6 @@ The scanner refuses a writable scan folder. Mount it read-only.
 
 The reader keeps the last good file when `zfs list` fails. Look at `docker compose logs hogwatch-zfs`; the container turns unhealthy when the file is more than three intervals old.
 
-## The setup link is gone
+## The setup page does not appear
 
-Create the first admin from the shell, see [Install](/install).
+Setup is open only while no administrator exists. If someone already created one, sign in as that user, or create an admin from the shell, see [Install](/install).

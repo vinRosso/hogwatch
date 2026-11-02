@@ -22,7 +22,7 @@ curl -fsSLO https://github.com/vinRosso/hogwatch/releases/latest/download/compos
 curl -fsSL  https://github.com/vinRosso/hogwatch/releases/latest/download/env.example -o .env
 # edit .env and set SCAN_PATH to the folder you want to analyze
 docker compose up -d
-docker compose logs hogwatch-web   # prints the setup link
+docker compose logs hogwatch-web   # prints the setup address
 ```
 
 ## Status

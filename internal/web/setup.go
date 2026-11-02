@@ -40,10 +40,6 @@ func (a *server) Setup(ctx context.Context, req oapi.SetupRequestObject) (oapi.S
 	} else if n > 0 {
 		return nil, &apiError{status: http.StatusNotFound}
 	}
-	if !a.setup.Check(req.Body.Token) {
-		return nil, &apiError{status: http.StatusUnauthorized, detail: "invalid setup token"}
-	}
-	a.limiter.Succeed(key)
 	name := normUsername(req.Body.Username)
 	if !local.ValidUsername(name) {
 		return nil, &apiError{status: http.StatusBadRequest, detail: "invalid username"}
@@ -88,7 +84,7 @@ func (a *server) Setup(ctx context.Context, req oapi.SetupRequestObject) (oapi.S
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	a.setup.Invalidate()
+	a.limiter.Succeed(key)
 	if !a.localAllowed(name, true) {
 		a.log.Warn("first admin created while local login is off and not listed as break-glass; it cannot log in again", "username", name)
 	}

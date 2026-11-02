@@ -10,7 +10,7 @@ vi.mock('../lib/router.svelte', async (orig) => ({ ...(await orig<typeof import(
 
 import { api, ApiError } from '../lib/api/client'
 import { t } from '../lib/i18n/en'
-import { hardNavigate, navigate } from '../lib/router.svelte'
+import { hardNavigate, navigate, router } from '../lib/router.svelte'
 import { session } from '../lib/session.svelte'
 import Login from './Login.svelte'
 
@@ -42,6 +42,16 @@ describe('Login', () => {
     render(Login)
     expect(await screen.findByLabelText(t.login.username)).toBeTruthy()
     expect(screen.queryByText(t.login.sso)).toBeNull()
+  })
+
+  it('redirects to the setup page while no admin exists', async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/auth/config') return { local: true, oidc: false } as never
+      if (path === '/setup/status') return { needed: true } as never
+      return { items: [] } as never
+    })
+    render(Login)
+    await waitFor(() => expect(router.path).toBe('/setup'))
   })
 
   it('oidc only shows just the single sign-on link', async () => {

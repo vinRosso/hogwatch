@@ -135,7 +135,7 @@ func (s *syncBuf) String() string {
 	return s.b.String()
 }
 
-func TestServe_LogsSetupToken(t *testing.T) {
+func TestServe_LogsSetupURL(t *testing.T) {
 	userEnv(t)
 	t.Setenv("HOGWATCH_LISTEN", "127.0.0.1:0")
 	t.Setenv("HOGWATCH_BASE_URL", "http://hogwatch.test")
@@ -153,23 +153,21 @@ func TestServe_LogsSetupToken(t *testing.T) {
 	}()
 
 	addrRE := regexp.MustCompile(`127\.0\.0\.1:([1-9][0-9]*)`)
-	tokRE := regexp.MustCompile(`http://hogwatch\.test/setup#token=([A-Za-z0-9_-]+)`)
-	var port, token string
+	setupRE := regexp.MustCompile(`url=http://hogwatch\.test/setup(\s|$)`)
+	var port string
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		s := out.String()
-		if m := addrRE.FindStringSubmatch(s); m != nil {
-			if m2 := tokRE.FindStringSubmatch(s); m2 != nil {
-				port, token = m[1], m2[1]
-				break
-			}
+		if m := addrRE.FindStringSubmatch(s); m != nil && setupRE.MatchString(s) {
+			port = m[1]
+			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if token == "" {
+	if port == "" {
 		t.Fatalf("no setup line in log: %s", out.String())
 	}
-	if n := len(tokRE.FindAllString(out.String(), -1)); n != 1 {
+	if n := len(setupRE.FindAllString(out.String(), -1)); n != 1 {
 		t.Fatalf("%d setup lines", n)
 	}
 
@@ -185,7 +183,7 @@ func TestServe_LogsSetupToken(t *testing.T) {
 		_ = resp.Body.Close()
 		return resp.StatusCode, resp.Cookies()
 	}
-	status, cookies := post("/api/v1/setup", `{"token":"`+token+`","username":"boss","password":"long enough pw"}`)
+	status, cookies := post("/api/v1/setup", `{"username":"boss","password":"long enough pw"}`)
 	if status != 200 {
 		t.Fatalf("setup: %d", status)
 	}
