@@ -1,0 +1,53 @@
+name: hogwatch
+
+x-base: &base
+  image: ghcr.io/vinrosso/hogwatch:${HOGWATCH_VERSION:-latest}
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  env_file: [{path: .env, required: false}]
+
+services:
+  hogwatch-init: # prepares ./data and ./zfs once, then exits
+    <<: *base
+    container_name: hogwatch-init
+    command: init
+    user: "0:10001"
+    cap_add: [CHOWN, FOWNER]
+    network_mode: none
+    restart: "no"
+    volumes: [./data:/data, ./zfs:/zfs]
+
+  hogwatch-web:
+    <<: *base
+    container_name: hogwatch-web
+    restart: unless-stopped
+    ports: ["127.0.0.1:${HOGWATCH_PORT:-8080}:8080"]
+    tmpfs: ["/tmp:size=512m"] # SQLite sorts over huge folders spill here
+    volumes: [./data:/data]
+    depends_on: {hogwatch-init: {condition: service_completed_successfully}}
+
+  hogwatch-scanner:
+    <<: *base
+    container_name: hogwatch-scanner
+    restart: unless-stopped
+    command: scan
+    user: "0:10001"
+    cap_add: [DAC_READ_SEARCH]
+    network_mode: none
+    volumes:
+      - ./data:/data
+      - ./zfs:/zfs:ro
+      - {type: bind, source: "${SCAN_PATH:?set SCAN_PATH in .env}", target: /host/data, read_only: true, bind: {propagation: rslave, create_host_path: false}}
+    depends_on: {hogwatch-init: {condition: service_completed_successfully}}
+
+  hogwatch-zfs: # on with COMPOSE_PROFILES=zfs in .env
+    <<: *base
+    image: ghcr.io/vinrosso/zfs-reader:${ZFS_READER_TAG:-ubuntu-24.04}
+    container_name: hogwatch-zfs
+    restart: unless-stopped
+    profiles: [zfs]
+    network_mode: none
+    devices: [/dev/zfs]
+    volumes: [./zfs:/out]
+    depends_on: {hogwatch-init: {condition: service_completed_successfully}}

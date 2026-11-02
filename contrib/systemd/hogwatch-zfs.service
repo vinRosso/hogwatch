@@ -1,0 +1,18 @@
+[Unit]
+Description=Write the ZFS numbers Hogwatch shows
+Documentation=https://vinrosso.github.io/hogwatch/zfs
+
+[Service]
+Type=oneshot
+# A hung zfs command must fail the unit so the timer runs again.
+TimeoutStartSec=2min
+# 10001 is the user the Hogwatch containers run as. Use root instead if
+# `zfs list` needs it on your host.
+User=10001
+Group=10001
+ExecStart=/usr/local/bin/write-zfs-tsv.sh /opt/hogwatch/zfs/zfs.tsv
+ProtectSystem=strict
+ReadWritePaths=/opt/hogwatch/zfs
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true

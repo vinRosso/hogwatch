@@ -1,0 +1,58 @@
+version: "2"
+
+run:
+  build-tags:
+    - integration
+
+linters:
+  default: standard
+  enable:
+    - depguard
+    - forbidigo
+    - gosec
+    - bodyclose
+    - misspell
+  settings:
+    depguard:
+      rules:
+        # Invariant 1 and 4: only the scanner reads host paths.
+        host-fs-only-in-scanner:
+          files:
+            - $all
+            - "!**/internal/scanner/**"
+            - "!**/test/integration/**"
+          deny:
+            - pkg: golang.org/x/sys/unix
+              desc: "invariant 1: only the scanner touches the host filesystem"
+            - pkg: github.com/vinRosso/hogwatch/internal/scanner/fsx
+              desc: "invariant 4: fd-relative filesystem access belongs to the scanner"
+        web-no-syscall:
+          files:
+            - "**/internal/web/**"
+            - "**/internal/repo/**"
+            - "**/internal/auth/**"
+            - "**/internal/export/**"
+            - "**/internal/schedule/**"
+            - "**/internal/settings/**"
+          deny:
+            - pkg: syscall
+              desc: "invariant 1: the web never touches the host filesystem"
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^os\.(Open|OpenFile|OpenRoot|OpenInRoot|ReadFile|ReadDir|Stat|Lstat|DirFS|Readlink)$
+          pkg: ^os$
+          msg: "invariant 1: the web never touches the host filesystem"
+        - pattern: ^filepath\.(Walk|WalkDir|Glob|EvalSymlinks)$
+          pkg: ^path/filepath$
+          msg: "invariant 1: the web never touches the host filesystem"
+  exclusions:
+    rules:
+      - path-except: internal/(web|repo|auth|export|schedule|settings)/
+        linters:
+          - forbidigo
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

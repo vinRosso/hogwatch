@@ -1,0 +1,18 @@
+:root{
+  --paper:#F6F1E7; --card:#FBF8F1; --sunk:#EFE7D8;
+  --ink:#1F1B16; --ink-2:#6B6152; --ink-3:#958A78; --hair:#DDD2BE;
+  --terra:#B0502A; --terra-bg:#F3DCCF; --mustard:#D9A441; --mustard-bg:#F6E7C4;
+  --sage:#5F7A61; --sage-bg:#DCE6D7; --plum:#6E4C8C; --rose:#D9677F; --teal:#2F8F87; --sky:#4F7CAC;
+  --danger:#A8322A; --danger-bg:#F5D9D5;
+  /* Root and user colors, cycled in this order by id (see lib/rootColor.ts and lib/userColor.ts). */
+  --root-1:var(--terra); --root-2:var(--mustard); --root-3:var(--sage);
+  --root-4:var(--sky); --root-5:var(--plum); --root-6:var(--rose);
+  --user-1:var(--terra); --user-2:var(--mustard); --user-3:var(--sage);
+  --user-4:var(--sky); --user-5:var(--plum); --user-6:var(--rose);
+  /* Folders that no user path covers. Umber, darker than any user color. */
+  --unowned:#4A3A2E;
+  --serif:"Fraunces Variable",Georgia,serif; --sans:"Space Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --edge:1px solid var(--ink); --pop:2px 2px 0 var(--ink); --r:10px; --r-pill:999px;
+  --focus:0 0 0 2px var(--paper),0 0 0 4px var(--terra);
+}

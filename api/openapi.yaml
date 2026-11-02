@@ -1,0 +1,1129 @@
+openapi: 3.1.0
+info:
+  title: Hogwatch API
+  version: 0.1.0
+  description: |
+    The v0.1 contract of the Hogwatch web API.
+
+    Every operation carries `x-hogwatch-access`, one of `public`, `user`,
+    `scoped`, `listing` or `admin`. The server enforces it before it reads any
+    parameter or body, and refuses to start when an operation lacks one.
+
+    Node references are `<scan_id>.<dir_id>`; no parameter carries a host
+    path, except `path` of `GET /resolve`, which is matched against name
+    segments stored in the database.
+
+    Names that come from the filesystem are `EscapedName` strings.
+servers:
+  - url: /
+security:
+  - sessionCookie: []
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Liveness
+      x-hogwatch-access: public
+      security: []
+      responses:
+        "200": { description: ok, content: { text/plain: { schema: { type: string } } } }
+        "503": { description: unavailable, content: { text/plain: { schema: { type: string } } } }
+  /readyz:
+    get:
+      operationId: readyz
+      summary: Readiness
+      x-hogwatch-access: public
+      security: []
+      responses:
+        "200": { description: ok, content: { text/plain: { schema: { type: string } } } }
+        "503": { description: unavailable, content: { text/plain: { schema: { type: string } } } }
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Local login
+      x-hogwatch-access: public
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LoginRequest" } } }
+      responses:
+        "200": { description: Logged in; the session cookie is set., content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Logout
+      x-hogwatch-access: user
+      responses:
+        "204": { description: Logged out; the cookie is cleared. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/config:
+    get:
+      operationId: getAuthConfig
+      summary: Which login methods are enabled
+      x-hogwatch-access: public
+      security: []
+      responses:
+        "200": { description: Methods., content: { application/json: { schema: { $ref: "#/components/schemas/AuthConfig" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/oidc/start:
+    get:
+      operationId: oidcStart
+      summary: Begin the OIDC login
+      x-hogwatch-access: public
+      security: []
+      responses:
+        "302": { description: Redirect to the identity provider., headers: { Location: { schema: { type: string } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/oidc/callback:
+    get:
+      operationId: oidcCallback
+      summary: Finish the OIDC login
+      x-hogwatch-access: public
+      security: []
+      parameters:
+        - { name: code, in: query, required: false, schema: { type: string } }
+        - { name: state, in: query, required: false, schema: { type: string } }
+        - { name: error, in: query, required: false, schema: { type: string } }
+      responses:
+        "302": { description: Redirect into the app., headers: { Location: { schema: { type: string } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/setup/status:
+    get:
+      operationId: getSetupStatus
+      summary: Whether the first admin still has to be created
+      x-hogwatch-access: public
+      security: []
+      responses:
+        "200": { description: Status., content: { application/json: { schema: { $ref: "#/components/schemas/SetupStatus" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/setup:
+    post:
+      operationId: setup
+      summary: Create the first admin with the one-time token
+      x-hogwatch-access: public
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SetupRequest" } } }
+      responses:
+        "200": { description: Admin created and logged in., content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: Profile and permissions
+      x-hogwatch-access: user
+      responses:
+        "200": { description: The caller., content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/me/prefs:
+    patch:
+      operationId: setMyPrefs
+      summary: Change the caller's display preferences; only the keys sent change
+      x-hogwatch-access: user
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/Prefs" } } }
+      responses:
+        "200": { description: The caller's preferences after the change., content: { application/json: { schema: { $ref: "#/components/schemas/Prefs" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/me/notice:
+    delete:
+      operationId: dismissNotice
+      summary: Clear the one-time notice
+      x-hogwatch-access: user
+      responses:
+        "204": { description: Cleared. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/me/password:
+    post:
+      operationId: changePassword
+      summary: Change the caller's password
+      x-hogwatch-access: user
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PasswordChange" } } }
+      responses:
+        "204": { description: Changed; other sessions are revoked. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/me/link-oidc:
+    post:
+      operationId: linkOidc
+      summary: Start linking the caller's account to the identity provider
+      x-hogwatch-access: user
+      responses:
+        "200": { description: Where to send the browser., content: { application/json: { schema: { $ref: "#/components/schemas/Redirect" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/me/usage:
+    get:
+      operationId: getMyUsage
+      summary: Usage against quota, per mount and per path
+      x-hogwatch-access: user
+      parameters:
+        - { name: window, in: query, required: false, description: Growth window; default 7d., schema: { type: string, enum: [7d, 30d, 90d] } }
+      responses:
+        "200": { description: Usage., content: { application/json: { schema: { $ref: "#/components/schemas/MyUsage" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/roots:
+    get:
+      operationId: listRoots
+      summary: Roots with the caller's paths
+      x-hogwatch-access: scoped
+      responses:
+        "200": { description: Roots., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/RootInfo" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/resolve:
+    get:
+      operationId: resolve
+      summary: Path to the current node reference
+      description: The only operation with a `path` parameter. It is matched against name segments in the database, never the filesystem.
+      x-hogwatch-access: scoped
+      parameters:
+        - { name: root, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { name: path, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: The node., content: { application/json: { schema: { type: object, required: [ref], properties: { ref: { $ref: "#/components/schemas/Ref" } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}:
+    get:
+      operationId: getNode
+      summary: Node details
+      x-hogwatch-access: scoped
+      parameters: [{ $ref: "#/components/parameters/Ref" }]
+      responses:
+        "200": { description: The node., content: { application/json: { schema: { $ref: "#/components/schemas/Node" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}/children:
+    get:
+      operationId: listChildren
+      summary: Children of a directory
+      x-hogwatch-access: scoped
+      parameters:
+        - { $ref: "#/components/parameters/Ref" }
+        - { name: sort, in: query, required: false, schema: { type: string, enum: [size, name, mtime, files] } }
+        - { name: filter, in: query, required: false, description: "Cube filter: `cat:<c>[,<c>]` then optional `age:<a>[,<a>]` and `size:<s>[,<s>]`, joined by `;`, each key at most once. Categories: the CategoryName values. Ages: lt1w lt1mo lt3mo lt1y lt2y lt5y lt10y ge10y. Sizes: lt1m lt10m lt100m lt1g lt10g ge10g. Empty means no filter. Filtered values are allocated bytes and file counts.", schema: { type: string, maxLength: 512 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { description: One page., content: { application/json: { schema: { $ref: "#/components/schemas/ChildrenPage" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}/treemap:
+    get:
+      operationId: getTreemap
+      summary: Nested children for the treemap
+      x-hogwatch-access: scoped
+      parameters:
+        - { $ref: "#/components/parameters/Ref" }
+        - { name: depth, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 6 } }
+        - { name: filter, in: query, required: false, description: "Cube filter: `cat:<c>[,<c>]` then optional `age:<a>[,<a>]` and `size:<s>[,<s>]`, joined by `;`, each key at most once. Categories: the CategoryName values. Ages: lt1w lt1mo lt3mo lt1y lt2y lt5y lt10y ge10y. Sizes: lt1m lt10m lt100m lt1g lt10g ge10g. Empty means no filter. Filtered values are allocated bytes and file counts.", schema: { type: string, maxLength: 512 } }
+      responses:
+        "200": { description: The tree., content: { application/json: { schema: { $ref: "#/components/schemas/TreemapNode" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}/top:
+    get:
+      operationId: getTop
+      summary: Largest or oldest files below a node
+      x-hogwatch-access: scoped
+      parameters:
+        - { $ref: "#/components/parameters/Ref" }
+        - { name: kind, in: query, required: true, schema: { type: string, enum: [largest, oldest] } }
+      responses:
+        "200": { description: Top entries, or stored false when a listing is needed., content: { application/json: { schema: { $ref: "#/components/schemas/TopResult" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}/extensions:
+    get:
+      operationId: listExtensions
+      summary: Usage by extension
+      x-hogwatch-access: scoped
+      parameters: [{ $ref: "#/components/parameters/Ref" }]
+      responses:
+        "200": { description: Extensions., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/ExtensionStat" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}/errors:
+    get:
+      operationId: listNodeErrors
+      summary: Scan errors below a node
+      x-hogwatch-access: scoped
+      parameters:
+        - { $ref: "#/components/parameters/Ref" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { description: One page., content: { application/json: { schema: { $ref: "#/components/schemas/ErrorPage" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/nodes/{ref}/history:
+    get:
+      operationId: getNodeHistory
+      summary: Size over time
+      x-hogwatch-access: scoped
+      parameters:
+        - { $ref: "#/components/parameters/Ref" }
+        - { name: window, in: query, required: false, schema: { type: string, enum: [7d, 30d, 90d, 1y, all] } }
+      responses:
+        "200": { description: Points., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/HistoryPoint" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/export/{ref}:
+    get:
+      operationId: exportNode
+      summary: Streamed export; CSV cells are guarded against formula injection
+      x-hogwatch-access: scoped
+      parameters:
+        - { $ref: "#/components/parameters/Ref" }
+        - { name: format, in: query, required: true, schema: { type: string, enum: [csv, json] } }
+        - { name: what, in: query, required: true, schema: { type: string, enum: [tree, top, usage] } }
+        - { name: check, in: query, required: false, description: "When true, only report whether the export would be accepted now: 204, or 429 when the concurrent-export limit is reached. Only the node and a free slot are checked; nothing is read or streamed.", schema: { type: boolean } }
+      responses:
+        "204": { description: Accepted; with check=true nothing was exported. }
+        "200":
+          description: The export.
+          headers:
+            Content-Disposition: { schema: { type: string } }
+          content:
+            text/csv: { schema: { type: string, format: binary } }
+            application/json: { schema: { type: string, format: binary } }
+        "429": { description: Too many concurrent exports; Retry-After is set., content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/listings:
+    post:
+      operationId: createListing
+      summary: Queue a file listing
+      x-hogwatch-access: listing
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ListingRequest" } } }
+      responses:
+        "202": { description: Queued., content: { application/json: { schema: { $ref: "#/components/schemas/ListingCreated" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/listings/{id}:
+    get:
+      operationId: getListing
+      summary: Listing status and results
+      x-hogwatch-access: listing
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { description: Status and one page of results., content: { application/json: { schema: { $ref: "#/components/schemas/Listing" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: cancelListing
+      summary: Cancel a listing
+      x-hogwatch-access: listing
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Cancelled. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/scans:
+    get:
+      operationId: listScans
+      summary: Scan status and last-scanned time
+      x-hogwatch-access: scoped
+      parameters:
+        - { name: root, in: query, required: false, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { description: Scans., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/ScanSummary" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createScan
+      summary: Queue a manual scan
+      x-hogwatch-access: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [root_id], properties: { root_id: { type: integer, format: int64 } } } } }
+      responses:
+        "202": { description: Queued., content: { application/json: { schema: { $ref: "#/components/schemas/ListingCreated" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/scans/{id}/cancel:
+    post:
+      operationId: cancelScan
+      summary: Cancel a scan
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Cancel requested. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/scans/{id}/progress:
+    get:
+      operationId: getScanProgress
+      summary: Scan progress
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { description: Progress., content: { application/json: { schema: { $ref: "#/components/schemas/ScanJob" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/scans:
+    get:
+      operationId: listAdminScans
+      summary: Full scan history including failures
+      x-hogwatch-access: admin
+      parameters:
+        - { name: root, in: query, required: false, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { description: One page., content: { application/json: { schema: { type: object, required: [items, next_cursor], properties: { items: { type: array, items: { $ref: "#/components/schemas/ScanAdmin" } }, next_cursor: { type: [string, "null"] } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users:
+    get:
+      operationId: listUsers
+      summary: Users
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/Cursor" }]
+      responses:
+        "200": { description: One page., content: { application/json: { schema: { type: object, required: [items, next_cursor], properties: { items: { type: array, items: { $ref: "#/components/schemas/AdminUser" } }, next_cursor: { type: [string, "null"] } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createUser
+      summary: Create a user
+      x-hogwatch-access: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UserInput" } } }
+      responses:
+        "201": { description: Created., content: { application/json: { schema: { $ref: "#/components/schemas/AdminUser" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{id}:
+    get:
+      operationId: getUser
+      summary: One user
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { description: The user., content: { application/json: { schema: { $ref: "#/components/schemas/AdminUser" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateUser
+      summary: Change roles, quota, email, disabled
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UserPatch" } } }
+      responses:
+        "200": { description: Updated., content: { application/json: { schema: { $ref: "#/components/schemas/AdminUser" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteUser
+      summary: Delete a user
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted. }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{id}/revoke-sessions:
+    post:
+      operationId: revokeUserSessions
+      summary: Revoke every session of a user
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Revoked. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{id}/link:
+    post:
+      operationId: linkUserOidc
+      summary: Link a user to an identity-provider subject
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [subject], properties: { subject: { type: string, minLength: 1, maxLength: 256 } } } } }
+      responses:
+        "204": { description: Linked. }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{id}/unlink:
+    post:
+      operationId: unlinkUserOidc
+      summary: Remove a user's identity-provider link
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Unlinked. }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{id}/paths:
+    get:
+      operationId: listUserPaths
+      summary: Paths assigned to a user
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { description: Paths., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/UserPath" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createUserPath
+      summary: Assign a path; overlaps are 422
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UserPathInput" } } }
+      responses:
+        "201": { description: Assigned., content: { application/json: { schema: { $ref: "#/components/schemas/UserPath" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{id}/paths/{pathId}:
+    delete:
+      operationId: deleteUserPath
+      summary: Remove an assigned path
+      x-hogwatch-access: admin
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: pathId, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      responses:
+        "204": { description: Removed. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/user-paths:
+    get:
+      operationId: listAllUserPaths
+      summary: Every assigned path of every user, for colouring folders by owner
+      x-hogwatch-access: admin
+      responses:
+        "200": { description: Paths., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/OwnedPath" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/roots:
+    get:
+      operationId: listAdminRoots
+      summary: Roots
+      x-hogwatch-access: admin
+      responses:
+        "200": { description: Roots., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/AdminRoot" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createRoot
+      summary: Create a root
+      x-hogwatch-access: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RootInput" } } }
+      responses:
+        "201": { description: Created., content: { application/json: { schema: { $ref: "#/components/schemas/AdminRoot" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/roots/{id}:
+    patch:
+      operationId: updateRoot
+      summary: Change a root
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RootPatch" } } }
+      responses:
+        "200": { description: Updated., content: { application/json: { schema: { $ref: "#/components/schemas/AdminRoot" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteRoot
+      summary: Delete a root
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted. }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/available-mounts:
+    get:
+      operationId: listAvailableMounts
+      summary: Mounts the scanner can see
+      x-hogwatch-access: admin
+      responses:
+        "200": { description: Mounts., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/AvailableMount" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/ranking:
+    get:
+      operationId: getRanking
+      summary: User ranking
+      x-hogwatch-access: admin
+      parameters:
+        - { name: sort, in: query, required: false, schema: { type: string, enum: [usage, quota_pct, growth] } }
+        - { name: window, in: query, required: false, description: Growth window; default 7d., schema: { type: string, enum: [7d, 30d, 90d] } }
+        - { name: root, in: query, required: false, description: Rank usage and growth on this root only; quota_pct stays the all-roots figure. 404 for an unknown root., schema: { type: integer, format: int64 } }
+      responses:
+        "200": { description: Rows., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/RankingRow" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/mounts:
+    get:
+      operationId: listMounts
+      summary: Per-mount view with ZFS numbers
+      x-hogwatch-access: admin
+      parameters:
+        - { name: window, in: query, required: false, description: Growth window; default 7d., schema: { type: string, enum: [7d, 30d, 90d] } }
+      responses:
+        "200": { description: Mounts., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/MountStat" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/config-issues:
+    get:
+      operationId: listConfigIssues
+      summary: Overlaps, redundant paths, duplicates, writable mounts
+      x-hogwatch-access: admin
+      responses:
+        "200": { description: Issues., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/ConfigIssue" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/categories:
+    get:
+      operationId: listCategories
+      summary: Extension to category map
+      x-hogwatch-access: admin
+      responses:
+        "200": { description: Map., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Category" } } } } } } }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/categories/{ext}:
+    put:
+      operationId: putCategory
+      summary: Map one extension
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/Ext" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [category], properties: { category: { $ref: "#/components/schemas/CategoryName" } } } } }
+      responses:
+        "200": { description: Mapped., content: { application/json: { schema: { $ref: "#/components/schemas/Category" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteCategory
+      summary: Unmap one extension
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/Ext" }]
+      responses:
+        "204": { description: Removed. }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/settings:
+    get:
+      operationId: getSettings
+      summary: Runtime settings
+      x-hogwatch-access: admin
+      responses:
+        "200": { description: Settings., content: { application/json: { schema: { $ref: "#/components/schemas/Settings" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: updateSettings
+      summary: Replace runtime settings
+      x-hogwatch-access: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/Settings" } } }
+      responses:
+        "200": { description: Saved., content: { application/json: { schema: { $ref: "#/components/schemas/Settings" } } } }
+        "422": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/audit:
+    get:
+      operationId: listAudit
+      summary: Audit log, newest first
+      x-hogwatch-access: admin
+      parameters: [{ $ref: "#/components/parameters/Cursor" }]
+      responses:
+        "200": { description: One page., content: { application/json: { schema: { $ref: "#/components/schemas/AuditPage" } } } }
+        default: { $ref: "#/components/responses/Problem" }
+components:
+  securitySchemes:
+    sessionCookie: { type: apiKey, in: cookie, name: __Host-hogwatch }
+  parameters:
+    Ref: { name: ref, in: path, required: true, schema: { $ref: "#/components/schemas/Ref" } }
+    ID: { name: id, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+    Ext: { name: ext, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9]{1,32}$" } }
+    Cursor: { name: cursor, in: query, required: false, description: Opaque; pass back next_cursor., schema: { type: string, maxLength: 1024 } }
+    Limit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500 } }
+  responses:
+    Problem:
+      description: An error. The body never holds a host path, a SQL error or a stack trace.
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+    Ref:
+      type: string
+      pattern: "^[1-9][0-9]*\\.[1-9][0-9]*$"
+      description: "`<scan_id>.<dir_id>`."
+    EscapedName:
+      type: string
+      x-hogwatch-format: fname
+      description: |
+        A filename as raw bytes. Valid UTF-8 passes through; each invalid
+        byte is `\xNN` (lowercase hex) and a backslash is `\\`.
+    CategoryName: { type: string, enum: [video, audio, image, archive, disk-image, document, code, other] }
+    Redirect:
+      type: object
+      required: [url]
+      properties: { url: { type: string } }
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 128 }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+    SetupRequest:
+      type: object
+      required: [token, username, password]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 256 }
+        username: { type: string, minLength: 1, maxLength: 128 }
+        display_name: { type: string, maxLength: 256 }
+        email: { type: [string, "null"], maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+    SetupStatus:
+      type: object
+      required: [needed]
+      properties: { needed: { type: boolean } }
+    PasswordChange:
+      type: object
+      required: [current, new]
+      properties:
+        current: { type: string, minLength: 1, maxLength: 1024 }
+        new: { type: string, minLength: 1, maxLength: 1024 }
+    Me:
+      type: object
+      required: [id, username, display_name, email, is_admin, admin_local, admin_oidc, can_list_files, has_password, oidc_linked, notice, prefs]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        email: { type: [string, "null"] }
+        is_admin: { type: boolean }
+        admin_local: { type: boolean }
+        admin_oidc: { type: boolean }
+        can_list_files: { type: boolean }
+        has_password: { type: boolean }
+        oidc_linked: { type: boolean }
+        notice: { type: [string, "null"], description: "oidc_linked or oidc_unlinked, shown once after a link or unlink; DELETE /me/notice clears it." }
+        prefs: { $ref: "#/components/schemas/Prefs" }
+    Prefs:
+      type: object
+      description: "Display preferences kept per account. Absent keys take the defaults: depth 2, every window 30d."
+      additionalProperties: false
+      properties:
+        depth: { type: integer, minimum: 1, maximum: 5, description: Treemap levels. }
+        history_window: { type: string, enum: ["7d", "30d", "90d", "1y", all], description: Window of the node history chart. }
+        usage_window: { type: string, enum: ["7d", "30d", "90d"], description: Growth window of the usage page. }
+        admin_window: { type: string, enum: ["7d", "30d", "90d"], description: Growth window of the admin users and mounts views. }
+    AuthConfig:
+      type: object
+      required: [local, oidc]
+      properties:
+        local: { type: boolean }
+        oidc: { type: boolean }
+    Totals:
+      type: object
+      required: [files, bytes_logical, bytes_alloc]
+      properties:
+        files: { type: integer, format: int64 }
+        bytes_logical: { type: integer, format: int64 }
+        bytes_alloc: { type: integer, format: int64 }
+    MyUsage:
+      type: object
+      required: [quota_bytes, quota_basis, total, growth_bytes, mounts, paths]
+      properties:
+        quota_bytes: { type: [integer, "null"], format: int64 }
+        quota_basis: { type: string, enum: [allocated, logical] }
+        total: { $ref: "#/components/schemas/Totals" }
+        growth_bytes: { type: [integer, "null"], format: int64, description: Allocated bytes now minus the history point at or before now-window; null without one. }
+        mounts:
+          type: array
+          items:
+            type: object
+            required: [root_id, root_name, usage, shared_hardlink_bytes, fs_total, fs_free, growth_bytes]
+            properties:
+              root_id: { type: integer, format: int64 }
+              root_name: { type: string }
+              usage: { $ref: "#/components/schemas/Totals" }
+              shared_hardlink_bytes: { type: integer, format: int64 }
+              fs_total: { type: [integer, "null"], format: int64 }
+              fs_free: { type: [integer, "null"], format: int64 }
+              growth_bytes: { type: [integer, "null"], format: int64 }
+        paths:
+          type: array
+          items:
+            type: object
+            required: [user_path_id, root_id, host_path, found, redundant, usage]
+            properties:
+              user_path_id: { type: integer, format: int64 }
+              root_id: { type: integer, format: int64 }
+              host_path: { $ref: "#/components/schemas/EscapedName" }
+              found: { type: boolean }
+              redundant: { type: boolean }
+              usage: { $ref: "#/components/schemas/Totals" }
+    RootInfo:
+      type: object
+      required: [id, name, last_scanned_at, scanning, fs_total, fs_free, anchors]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        last_scanned_at: { type: [integer, "null"], format: int64 }
+        scanning: { type: boolean }
+        fs_total: { type: [integer, "null"], format: int64 }
+        fs_free: { type: [integer, "null"], format: int64 }
+        anchors:
+          type: array
+          items:
+            type: object
+            required: [ref, host_path, found]
+            properties:
+              ref: { type: [string, "null"] }
+              host_path: { $ref: "#/components/schemas/EscapedName" }
+              found: { type: boolean }
+    Node:
+      type: object
+      required: [ref, root_id, name, rel_path, parent_ref, files, dirs, bytes_logical, bytes_alloc, mtime, flags, error_count]
+      properties:
+        ref: { $ref: "#/components/schemas/Ref" }
+        root_id: { type: integer, format: int64 }
+        name: { $ref: "#/components/schemas/EscapedName" }
+        rel_path: { $ref: "#/components/schemas/EscapedName" }
+        parent_ref: { type: [string, "null"] }
+        files: { type: integer, format: int64 }
+        dirs: { type: integer, format: int64 }
+        bytes_logical: { type: integer, format: int64 }
+        bytes_alloc: { type: integer, format: int64 }
+        mtime: { type: integer, format: int64 }
+        flags: { type: integer, format: int64 }
+        error_count: { type: integer, format: int64 }
+    Child:
+      type: object
+      required: [name, kind, ref, files, bytes_logical, bytes_alloc, mtime]
+      properties:
+        name: { $ref: "#/components/schemas/EscapedName" }
+        kind: { type: string, enum: [dir, files] }
+        ref: { type: [string, "null"] }
+        files: { type: integer, format: int64 }
+        bytes_logical: { type: [integer, "null"], format: int64, description: Null when a filter is set because the cube holds allocated bytes only. }
+        bytes_alloc: { type: integer, format: int64 }
+        mtime: { type: integer, format: int64 }
+    ChildrenPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Child" } }
+        next_cursor: { type: [string, "null"] }
+    TreemapNode:
+      type: object
+      required: [name, kind, ref, bytes_alloc, files, children]
+      properties:
+        kind: { type: string, enum: [dir, files, ext, rest], description: "`ext` is the own files of the parent with one extension (`name`, empty for none); `files` is own files not attributed to an extension; `rest` merges the children left out by the node cap." }
+        name: { $ref: "#/components/schemas/EscapedName" }
+        ref: { type: [string, "null"] }
+        bytes_alloc: { type: integer, format: int64 }
+        files: { type: integer, format: int64 }
+        children: { type: array, items: { $ref: "#/components/schemas/TreemapNode" } }
+    TopResult:
+      type: object
+      required: [stored, items]
+      properties:
+        stored: { type: boolean, description: False when the answer is not stored and a listing is needed. }
+        items:
+          type: array
+          items:
+            type: object
+            required: [name, dir_ref, size, alloc, mtime]
+            properties:
+              name: { $ref: "#/components/schemas/EscapedName" }
+              dir_ref: { $ref: "#/components/schemas/Ref" }
+              size: { type: integer, format: int64 }
+              alloc: { type: integer, format: int64 }
+              mtime: { type: integer, format: int64 }
+    ExtensionStat:
+      type: object
+      required: [ext, category, files, bytes_alloc]
+      properties:
+        ext: { type: string }
+        category: { $ref: "#/components/schemas/CategoryName" }
+        files: { type: integer, format: int64 }
+        bytes_alloc: { type: integer, format: int64 }
+    ErrorPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [name, errno]
+            properties:
+              name: { $ref: "#/components/schemas/EscapedName" }
+              errno: { type: integer }
+        next_cursor: { type: [string, "null"] }
+    HistoryPoint:
+      type: object
+      required: [ts, bytes_alloc, files]
+      properties:
+        ts: { type: integer, format: int64 }
+        bytes_alloc: { type: integer, format: int64 }
+        files: { type: integer, format: int64 }
+    ListingRequest:
+      type: object
+      required: [ref, mode]
+      properties:
+        ref: { $ref: "#/components/schemas/Ref" }
+        mode: { type: string, enum: [children, subtree] }
+        exts: { type: array, maxItems: 20, items: { type: string, pattern: "^[a-z0-9]{1,32}$" } }
+        min_size: { type: integer, format: int64, minimum: 0 }
+        min_age_days: { type: integer, minimum: 0, maximum: 36500 }
+    ListingCreated:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: integer, format: int64 }
+        status: { type: string, enum: [queued] }
+    Listing:
+      type: object
+      required: [id, status, truncated, error, items, next_cursor]
+      properties:
+        id: { type: integer, format: int64 }
+        status: { type: string, enum: [queued, running, done, failed, cancelled] }
+        truncated: { type: boolean }
+        error: { type: [string, "null"], description: A fixed message, never a host path. }
+        items:
+          type: array
+          items:
+            type: object
+            required: [name, type, size, alloc, mtime, uid]
+            properties:
+              name: { $ref: "#/components/schemas/EscapedName" }
+              type: { type: string }
+              size: { type: integer, format: int64 }
+              alloc: { type: integer, format: int64 }
+              mtime: { type: integer, format: int64 }
+              uid: { type: integer, format: int64 }
+        next_cursor: { type: [string, "null"] }
+    ScanSummary:
+      type: object
+      description: The user view of a scan. It has no error field because scan errors can hold host paths.
+      required: [id, root_id, status, trigger, started_at, finished_at, dirs, files, bytes_alloc]
+      properties:
+        id: { type: integer, format: int64 }
+        root_id: { type: integer, format: int64 }
+        status: { type: string }
+        trigger: { type: string, enum: [schedule, manual] }
+        started_at: { type: integer, format: int64 }
+        finished_at: { type: [integer, "null"], format: int64 }
+        dirs: { type: integer, format: int64 }
+        files: { type: integer, format: int64 }
+        bytes_alloc: { type: integer, format: int64 }
+    ScanAdmin:
+      type: object
+      description: The admin view of a scan. Only admins see the error, which can hold host paths.
+      required: [id, job_id, root_id, status, trigger, started_at, finished_at, dirs, files, bytes_alloc, error, error_count, progress]
+      properties:
+        id: { type: integer, format: int64 }
+        job_id: { type: [integer, "null"], format: int64 }
+        root_id: { type: integer, format: int64 }
+        status: { type: string }
+        trigger: { type: string, enum: [schedule, manual] }
+        started_at: { type: integer, format: int64 }
+        finished_at: { type: [integer, "null"], format: int64 }
+        dirs: { type: integer, format: int64 }
+        files: { type: integer, format: int64 }
+        bytes_alloc: { type: integer, format: int64 }
+        error: { type: [string, "null"] }
+        error_count: { type: integer, format: int64 }
+        progress: { type: [object, "null"], additionalProperties: true }
+    ScanJob:
+      type: object
+      description: A scan job. Only admins see the error, which can hold host paths.
+      required: [job_id, root_id, status, scan_id, progress, error, created_at, started_at, finished_at]
+      properties:
+        job_id: { type: integer, format: int64 }
+        root_id: { type: integer, format: int64 }
+        status: { type: string, enum: [queued, running, done, failed, cancelled] }
+        scan_id: { type: [integer, "null"], format: int64 }
+        progress: { type: [object, "null"], additionalProperties: true }
+        error: { type: [string, "null"] }
+        created_at: { type: integer, format: int64 }
+        started_at: { type: [integer, "null"], format: int64 }
+        finished_at: { type: [integer, "null"], format: int64 }
+    UserInput:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 128 }
+        display_name: { type: string, maxLength: 256 }
+        email: { type: [string, "null"], maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+        admin_local: { type: boolean }
+        can_list_files: { type: boolean }
+        quota_bytes: { type: [integer, "null"], format: int64, minimum: 0 }
+        quota_basis: { type: string, enum: [allocated, logical] }
+    UserPatch:
+      type: object
+      properties:
+        display_name: { type: string, maxLength: 256 }
+        email: { type: [string, "null"], maxLength: 320 }
+        admin_local: { type: boolean }
+        can_list_files: { type: boolean }
+        quota_bytes: { type: [integer, "null"], format: int64, minimum: 0 }
+        quota_basis: { type: string, enum: [allocated, logical] }
+        disabled: { type: boolean }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+    AdminUser:
+      type: object
+      required: [id, username, display_name, email, admin_local, admin_oidc, can_list_files, quota_bytes, quota_basis, disabled, oidc_linked, has_password, created_at, last_login_at]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        email: { type: [string, "null"] }
+        admin_local: { type: boolean }
+        admin_oidc: { type: boolean }
+        can_list_files: { type: boolean }
+        quota_bytes: { type: [integer, "null"], format: int64 }
+        quota_basis: { type: string, enum: [allocated, logical] }
+        disabled: { type: boolean }
+        oidc_linked: { type: boolean }
+        has_password: { type: boolean }
+        created_at: { type: integer, format: int64 }
+        last_login_at: { type: [integer, "null"], format: int64 }
+    UserPathInput:
+      type: object
+      required: [root_id, rel_path]
+      properties:
+        root_id: { type: integer, format: int64 }
+        rel_path: { $ref: "#/components/schemas/EscapedName" }
+    UserPath:
+      type: object
+      required: [id, user_id, root_id, rel_path, found, redundant, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        root_id: { type: integer, format: int64 }
+        rel_path: { $ref: "#/components/schemas/EscapedName" }
+        found: { type: boolean }
+        redundant: { type: boolean }
+        created_at: { type: integer, format: int64 }
+    OwnedPath:
+      type: object
+      required: [user_id, root_id, rel_path]
+      properties:
+        user_id: { type: integer, format: int64 }
+        root_id: { type: integer, format: int64 }
+        rel_path: { $ref: "#/components/schemas/EscapedName" }
+    RootInput:
+      type: object
+      required: [name, container_path]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        container_path: { type: string, minLength: 1, maxLength: 4096 }
+        cross_fs: { type: boolean }
+        excludes: { type: array, maxItems: 1000, items: { type: string, maxLength: 4096 } }
+        schedule: { type: string, maxLength: 128 }
+        enabled: { type: boolean }
+    RootPatch:
+      type: object
+      description: Every field is optional. container_path cannot change; delete and recreate the root.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        cross_fs: { type: boolean }
+        excludes: { type: array, maxItems: 1000, items: { type: string, maxLength: 4096 } }
+        schedule: { type: string, maxLength: 128 }
+        enabled: { type: boolean }
+    AdminRoot:
+      type: object
+      required: [id, name, container_path, host_path, cross_fs, excludes, schedule, enabled, zfs_dataset, current_scan_id]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        container_path: { type: string }
+        host_path: { type: string }
+        cross_fs: { type: boolean }
+        excludes: { type: array, items: { type: string } }
+        schedule: { type: string }
+        enabled: { type: boolean }
+        zfs_dataset: { type: [string, "null"] }
+        current_scan_id: { type: [integer, "null"], format: int64 }
+    AvailableMount:
+      type: object
+      required: [container_path, host_path, fstype, readonly, root_id]
+      properties:
+        container_path: { type: string }
+        host_path: { type: string }
+        fstype: { type: string }
+        readonly: { type: boolean }
+        root_id: { type: [integer, "null"], format: int64, description: The root that already uses this mount. }
+    RankingRow:
+      type: object
+      required: [user_id, username, bytes_alloc, bytes_logical, shared_hardlink_bytes, quota_bytes, quota_pct, growth_bytes]
+      properties:
+        user_id: { type: integer, format: int64 }
+        username: { type: string }
+        bytes_alloc: { type: integer, format: int64 }
+        bytes_logical: { type: integer, format: int64 }
+        shared_hardlink_bytes: { type: integer, format: int64 }
+        quota_bytes: { type: [integer, "null"], format: int64 }
+        quota_pct: { type: [number, "null"] }
+        growth_bytes: { type: [integer, "null"], format: int64 }
+    MountStat:
+      type: object
+      required: [root_id, root_name, bytes_alloc, growth_bytes, fs_total, fs_free, zfs_used, zfs_avail, zfs_quota, zfs_used_snapshots]
+      properties:
+        root_id: { type: integer, format: int64 }
+        root_name: { type: string }
+        bytes_alloc: { type: [integer, "null"], format: int64 }
+        growth_bytes: { type: [integer, "null"], format: int64 }
+        fs_total: { type: [integer, "null"], format: int64 }
+        fs_free: { type: [integer, "null"], format: int64 }
+        zfs_used: { type: [integer, "null"], format: int64 }
+        zfs_avail: { type: [integer, "null"], format: int64 }
+        zfs_quota: { type: [integer, "null"], format: int64 }
+        zfs_used_snapshots: { type: [integer, "null"], format: int64 }
+    ConfigIssue:
+      type: object
+      required: [id, root_id, kind, details, created_at]
+      properties:
+        id: { type: [integer, "null"], format: int64, description: Null for an issue derived on read. }
+        root_id: { type: integer, format: int64 }
+        kind: { type: string, enum: [cross_root_duplicate, writable_mount, eio, invalid_schedule, overlap, redundant_path, shared_hardlinks] }
+        details: { type: object, additionalProperties: true }
+        created_at: { type: integer, format: int64 }
+    Category:
+      type: object
+      required: [ext, category]
+      properties:
+        ext: { type: string }
+        category: { $ref: "#/components/schemas/CategoryName" }
+    Settings:
+      type: object
+      additionalProperties: { type: string }
+    AuditPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, ts, actor_id, action, target, details]
+            properties:
+              id: { type: integer, format: int64 }
+              ts: { type: integer, format: int64 }
+              actor_id: { type: [integer, "null"], format: int64 }
+              action: { type: string }
+              target: { type: string }
+              details: { type: object, additionalProperties: true }
+        next_cursor: { type: [string, "null"] }

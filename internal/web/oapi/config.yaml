@@ -1,0 +1,7 @@
+# oapi-codegen config: run from the repo root by `make gen`.
+package: oapi
+output: internal/web/oapi/oapi.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true

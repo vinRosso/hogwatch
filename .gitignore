@@ -1,0 +1,13 @@
+/bin/
+/web/node_modules/
+/web/dist/
+/data/
+/zfs/
+.env
+*.test
+coverage.out
+/internal/**/zz_lintprobe_*.go
+/docs/node_modules/
+/docs/.vitepress/dist/
+/docs/.vitepress/cache/
+/web/test-results/

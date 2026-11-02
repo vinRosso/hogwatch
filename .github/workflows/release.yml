@@ -1,0 +1,133 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: grep -E '^(GO|NODE)_VERSION=' scripts/versions.env >> "$GITHUB_ENV"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make web-stub
+      - run: make lint test check-release
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: grep -E '^(GO|NODE)_VERSION=' scripts/versions.env >> "$GITHUB_ENV"
+      - name: Work out the image tags
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          tags="ghcr.io/vinrosso/hogwatch:$v"
+          case "$v" in
+            *-*) ;; # a release candidate gets no floating tags
+            *)
+              # latest only moves forward: a backport tag must not take it back.
+              released=$(git tag -l 'v[0-9]*' | grep -v -- '-' | sed 's/^v//')
+              [ "$(printf '%s\n' "$released" | sort -V | tail -1)" = "$v" ] && tags="$tags,ghcr.io/vinrosso/hogwatch:latest"
+              series="${v%.*}"
+              [ "$(printf '%s\n' "$released" | grep "^${series}\." | sort -V | tail -1)" = "$v" ] && tags="$tags,ghcr.io/vinrosso/hogwatch:$series"
+              ;;
+          esac
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+          echo "TAGS=$tags" >> "$GITHUB_ENV"
+      - run: make image IMAGE=hogwatch:release
+      - run: bash deploy/smoke.sh hogwatch:release
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.TAGS }}
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            GO_VERSION=${{ env.GO_VERSION }}
+            VERSION=${{ env.VERSION }}
+            COMMIT=${{ github.sha }}
+      # The bytes users pull, not just the build tested above.
+      - run: docker pull "ghcr.io/vinrosso/hogwatch:${VERSION}"
+      - run: bash deploy/smoke.sh "ghcr.io/vinrosso/hogwatch:${VERSION}"
+
+  zfs-reader:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {tag: ubuntu-24.04, base: 'ubuntu:24.04', file: Dockerfile, platforms: 'linux/amd64,linux/arm64'}
+          - {tag: debian-12, base: 'debian:12', file: Dockerfile, platforms: 'linux/amd64,linux/arm64'}
+          - {tag: debian-13, base: 'debian:13', file: Dockerfile, platforms: 'linux/amd64,linux/arm64'}
+          # Proxmox publishes amd64 packages only.
+          - {tag: proxmox-8, base: 'debian:12', file: Dockerfile.proxmox, platforms: 'linux/amd64'}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Work out the image tags
+        env:
+          TAG: ${{ matrix.tag }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          tags="ghcr.io/vinrosso/zfs-reader:$TAG-$v"
+          case "$v" in
+            *-*) ;;
+            *) tags="$tags,ghcr.io/vinrosso/zfs-reader:$TAG" ;;
+          esac
+          echo "TAGS=$tags" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: contrib/zfs-reader
+          file: contrib/zfs-reader/${{ matrix.file }}
+          platforms: ${{ matrix.platforms }}
+          push: true
+          tags: ${{ env.TAGS }}
+          build-args: BASE=${{ matrix.base }}
+
+  release:
+    needs: [image, zfs-reader]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          # GitHub renames assets that start with a dot, so it is published as env.example.
+          cp .env.example "$RUNNER_TEMP/env.example"
+          gh release create "$GITHUB_REF_NAME" compose.yaml "$RUNNER_TEMP/env.example" --generate-notes "${flags[@]}"

@@ -1,0 +1,9 @@
+.git
+.env
+bin
+data
+zfs
+web/node_modules
+web/dist
+docs
+contrib

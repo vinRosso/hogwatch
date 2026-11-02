@@ -1,0 +1,12 @@
+# Image for the /dev/zfs probe. BASE must match the host distro, so the zfs
+# userland matches the kernel module, for example ubuntu:24.04 or debian:13.
+#   docker build -t hogwatch-zfs-probe -f Dockerfile.probe --build-arg BASE=debian:13 .
+ARG BASE=ubuntu:24.04
+FROM ${BASE}
+# On Debian zfsutils-linux lives in the "contrib" component.
+RUN for f in /etc/apt/sources.list.d/debian.sources; do \
+      [ -f "$f" ] && sed -i 's/^Components: main$/Components: main contrib/' "$f"; \
+    done; \
+    apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends zfsutils-linux \
+ && rm -rf /var/lib/apt/lists/*
