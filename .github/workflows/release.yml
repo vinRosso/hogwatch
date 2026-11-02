@@ -15,7 +15,10 @@ jobs:
       - run: grep -E '^(GO|NODE)_VERSION=' scripts/versions.env >> "$GITHUB_ENV"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: stable # the lint tools need a newer Go than the go.mod floor
+          cache-dependency-path: |
+            tools/go.sum
+            tools/actionlint.sum
       - run: make web-stub
       - run: make lint test check-release
 
