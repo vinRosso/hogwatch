@@ -77,6 +77,15 @@ describe('ListingDialog', () => {
     expect(vi.mocked(api.post).mock.calls[0]).toEqual(['/listings', { ref: '1.2', mode: 'children', exts: ['mp4', 'mkv'], min_size: 1e10, min_age_days: 30 }])
   })
 
+  it('opens in the mode it is given and posts it', async () => {
+    vi.mocked(api.post).mockResolvedValue({ id: 9, status: 'queued' } as never)
+    render(ListingDialog, { open: true, ref: '1.2', initialMode: 'subtree', onclose: () => {} })
+    expect((screen.getByRole('radio', { name: /everything below/ }) as HTMLInputElement).checked).toBe(true)
+    await fireEvent.click(screen.getByRole('button', { name: 'Start listing' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(vi.mocked(api.post).mock.calls[0]).toEqual(['/listings', { ref: '1.2', mode: 'subtree' }])
+  })
+
   it('shows the running-limit message on 429', async () => {
     vi.mocked(api.post).mockRejectedValue(new ApiError(429, 'Too many', '', 5))
     render(ListingDialog, { open: true, ref: '1.2', onclose: () => {} })

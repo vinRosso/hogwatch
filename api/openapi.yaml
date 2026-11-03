@@ -227,11 +227,12 @@ paths:
   /api/v1/nodes/{ref}/top:
     get:
       operationId: getTop
-      summary: Largest or oldest files below a node
+      summary: Largest or oldest files below a node, or directly in it
       x-hogwatch-access: scoped
       parameters:
         - { $ref: "#/components/parameters/Ref" }
         - { name: kind, in: query, required: true, schema: { type: string, enum: [largest, oldest] } }
+        - { name: scope, in: query, required: false, description: "`subtree` (default) ranks every file below the node; `dir` ranks only the files directly in it; `both` merges the two into one list, each file once.", schema: { type: string, enum: [subtree, dir, both] } }
       responses:
         "200": { description: Top entries, or stored false when a listing is needed., content: { application/json: { schema: { $ref: "#/components/schemas/TopResult" } } } }
         default: { $ref: "#/components/responses/Problem" }
@@ -724,6 +725,7 @@ components:
         history_window: { type: string, enum: ["7d", "30d", "90d", "1y", all], description: Window of the node history chart. }
         usage_window: { type: string, enum: ["7d", "30d", "90d"], description: Growth window of the usage page. }
         admin_window: { type: string, enum: ["7d", "30d", "90d"], description: Growth window of the admin users and mounts views. }
+        panel_width: { type: integer, minimum: 320, maximum: 900, description: "Width in pixels of the browse page's side panel (default 420)." }
     AuthConfig:
       type: object
       required: [local, oidc]

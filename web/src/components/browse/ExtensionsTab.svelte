@@ -41,25 +41,32 @@
     </EmptyState>
   {/if}
 {:else if items}
-  <table>
-    <thead>
-      <tr><th>{t.ext.ext}</th><th>{t.ext.category}</th><th class="r">{t.ext.files}</th><th class="r">{t.ext.size}</th><th></th></tr>
-    </thead>
-    <tbody>
-      {#each items as it (it.ext + it.category)}
-        <tr>
-          <td class="mono" style="unicode-bidi: isolate">{it.ext ? displayName(it.ext) : t.ext.none}</td>
-          <td>{t.filter.cat[it.category] ?? it.category}</td>
-          <td class="mono r">{formatCount(it.files)}</td>
-          <td class="mono r">{formatBytes(it.bytes_alloc)}</td>
-          <td class="bar"><span style:width={`${(it.bytes_alloc / max) * 100}%`}></span></td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>{t.ext.ext}</th><th>{t.ext.category}</th><th class="r">{t.ext.files}</th><th class="r">{t.ext.size}</th><th></th></tr>
+      </thead>
+      <tbody>
+        {#each items as it (it.ext + it.category)}
+          <tr>
+            <td class="mono" style="unicode-bidi: isolate">{it.ext ? displayName(it.ext) : t.ext.none}</td>
+            <td>{t.filter.cat[it.category] ?? it.category}</td>
+            <td class="mono r">{formatCount(it.files)}</td>
+            <td class="mono r">{formatBytes(it.bytes_alloc)}</td>
+            <td class="bar"><span style:width={`${(it.bytes_alloc / max) * 100}%`}></span></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
 {/if}
 
 <style>
+  .scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
   table {
     width: 100%;
     border-collapse: collapse;

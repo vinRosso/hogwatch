@@ -74,6 +74,7 @@ export const t = {
   user: { menu: 'Account menu', profile: 'Profile', signOut: 'Sign out' },
   rootPicker: { label: 'Root', none: 'No roots' },
   browse: {
+    resizePanel: 'Resize the side panel',
     noPaths: 'No folders are assigned to you yet. Ask an administrator to give you a path.',
     neverScanned: 'This root has not been scanned yet. Come back after its first scan.',
     notInScan: (path: string) => `${path} is not in the current scan.`,
@@ -89,6 +90,7 @@ export const t = {
   },
   growth: { none: 'No history point that old yet' },
   tabs: { label: 'Details', list: 'List', top: 'Top files', ext: 'Extensions', history: 'History', errors: 'Errors' },
+  months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   list: {
     name: 'Name',
     size: 'Size',
@@ -105,9 +107,15 @@ export const t = {
   top: {
     largest: 'Largest',
     oldest: 'Oldest',
-    notStored: 'The largest and oldest files of this folder are not stored. List its files to see them.',
+    kindLabel: 'Order',
+    thisFolder: 'Directly in this folder',
+    notStored: 'The largest and oldest files of this folder are not stored. List this folder and everything below it, without filters, and they show here.',
     listFiles: 'List files',
     openFolder: 'Open containing folder',
+    copyPath: 'Copy full path',
+    copied: 'Path copied.',
+    copyFailed: 'The path could not be copied.',
+    copyUnavailable: 'This file is outside your paths, so its full path is not known.',
     empty: 'No files.',
     modified: 'Modified',
   },

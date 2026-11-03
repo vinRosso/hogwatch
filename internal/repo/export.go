@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/vinRosso/hogwatch/internal/db/dbq"
 	"github.com/vinRosso/hogwatch/internal/gen"
@@ -113,7 +114,9 @@ type TopExportRow struct {
 	Mtime  int64
 }
 
-// ExportTop returns the stored largest and then oldest files below ref.
+// ExportTop returns the stored largest and then oldest files below ref. It
+// reads the scan's lists only: a listing is a user's temporary result and never
+// feeds an export.
 func (r *Repo) ExportTop(ctx context.Context, s Scope, ref noderef.Ref) ([]TopExportRow, error) {
 	e, err := r.openVisible(ctx, s, ref)
 	if err != nil {
@@ -127,7 +130,7 @@ func (r *Repo) ExportTop(ctx context.Context, s Scope, ref noderef.Ref) ([]TopEx
 	var out []TopExportRow
 	rels := map[int64][]byte{}
 	for _, kind := range []string{"largest", "oldest"} {
-		items, _, err := r.Top(ctx, s, ref, kind)
+		items, _, err := r.Top(ctx, Caller{}, s, ref, kind, TopSubtree, time.Time{})
 		if err != nil {
 			return nil, err
 		}

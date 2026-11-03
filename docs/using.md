@@ -18,7 +18,7 @@ The dashed buttons add filters: **category** (video, documents and so on, from f
 
 ### List, Top files, Extensions
 
-The **List** tab shows the children of the current folder with size, share, file count and newest file. **Top files** shows the largest files below it, and **Extensions** groups space by file type.
+The **List** tab shows the children of the current folder with size, share, file count and newest file. **Top files** shows the largest (or oldest) files below it together with the ones directly in it, each with buttons to open its folder and copy its full path; for a folder with no stored list, a finished listing of that folder feeds it. **Extensions** groups space by file type. On a wide screen, drag the left edge of the side panel to resize it; the width is saved with your account.
 
 ![Top files tab](/images/tab-top-files.png)
 

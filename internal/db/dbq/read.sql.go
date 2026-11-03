@@ -120,6 +120,41 @@ func (q *Queries) HasActiveCancel(ctx context.Context, jobID int64) (int64, erro
 	return column_1, err
 }
 
+const latestUnfilteredListing = `-- name: LatestUnfilteredListing :one
+SELECT id FROM jobs
+WHERE kind = 'listing' AND status = 'done'
+  AND target_node = ?1 AND requested_by = ?2
+  AND (?3 = 1 OR json_extract(params, '$.mode') = 'subtree')
+  AND json_extract(params, '$.exts') IS NULL
+  AND json_extract(params, '$.min_size') IS NULL
+  AND json_extract(params, '$.min_age_days') IS NULL
+  AND json_extract(progress, '$.truncated') = 0
+  AND (expires_at IS NULL OR expires_at >= ?4)
+ORDER BY id DESC LIMIT 1
+`
+
+type LatestUnfilteredListingParams struct {
+	TargetNode  sql.NullString
+	RequestedBy sql.NullInt64
+	AnyMode     interface{}
+	Now         sql.NullInt64
+}
+
+// LatestUnfilteredListing finds a user's newest finished listing of a node that holds every
+// file below it (subtree mode), or with any_mode every file directly in it: no filters,
+// not cut at the row cap, not expired.
+func (q *Queries) LatestUnfilteredListing(ctx context.Context, arg LatestUnfilteredListingParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, latestUnfilteredListing,
+		arg.TargetNode,
+		arg.RequestedBy,
+		arg.AnyMode,
+		arg.Now,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listCurrentAndRunningScans = `-- name: ListCurrentAndRunningScans :many
 SELECT s.id, s.root_id, s.status, s.trigger, s.started_at, s.finished_at, s.dirs, s.files, s.bytes_alloc
 FROM scans AS s JOIN scan_roots AS r ON r.id = s.root_id
@@ -636,4 +671,101 @@ func (q *Queries) RootScanning(ctx context.Context, rootID int64) (int64, error)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const topListingLargest = `-- name: TopListingLargest :many
+SELECT rel_name, size, alloc, mtime FROM listing_results
+WHERE job_id = ?1 AND type <> 'dir'
+  AND (?2 = 0 OR instr(rel_name, CAST('/' AS BLOB)) = 0)
+ORDER BY size DESC, rel_name LIMIT ?3
+`
+
+type TopListingLargestParams struct {
+	JobID    int64
+	Direct   interface{}
+	RowLimit int64
+}
+
+type TopListingLargestRow struct {
+	RelName []byte
+	Size    int64
+	Alloc   int64
+	Mtime   int64
+}
+
+// With direct = 1 only the files directly in the listed node count (no "/" in the name).
+func (q *Queries) TopListingLargest(ctx context.Context, arg TopListingLargestParams) ([]TopListingLargestRow, error) {
+	rows, err := q.db.QueryContext(ctx, topListingLargest, arg.JobID, arg.Direct, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopListingLargestRow
+	for rows.Next() {
+		var i TopListingLargestRow
+		if err := rows.Scan(
+			&i.RelName,
+			&i.Size,
+			&i.Alloc,
+			&i.Mtime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const topListingOldest = `-- name: TopListingOldest :many
+SELECT rel_name, size, alloc, mtime FROM listing_results
+WHERE job_id = ?1 AND type <> 'dir'
+  AND (?2 = 0 OR instr(rel_name, CAST('/' AS BLOB)) = 0)
+ORDER BY mtime, size DESC, rel_name LIMIT ?3
+`
+
+type TopListingOldestParams struct {
+	JobID    int64
+	Direct   interface{}
+	RowLimit int64
+}
+
+type TopListingOldestRow struct {
+	RelName []byte
+	Size    int64
+	Alloc   int64
+	Mtime   int64
+}
+
+func (q *Queries) TopListingOldest(ctx context.Context, arg TopListingOldestParams) ([]TopListingOldestRow, error) {
+	rows, err := q.db.QueryContext(ctx, topListingOldest, arg.JobID, arg.Direct, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopListingOldestRow
+	for rows.Next() {
+		var i TopListingOldestRow
+		if err := rows.Scan(
+			&i.RelName,
+			&i.Size,
+			&i.Alloc,
+			&i.Mtime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

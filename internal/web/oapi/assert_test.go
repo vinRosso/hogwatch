@@ -15,7 +15,7 @@ var (
 	_ bool    = AuthConfig{}.Oidc
 	_ *string = ChildrenPage{}.NextCursor
 	_ *string = Listing{}.NextCursor
-	_         = [...]ListingRequestMode{Children, Subtree}
+	_         = [...]ListingRequestMode{ListingRequestModeChildren, ListingRequestModeSubtree}
 	_ string  = Node{}.RelPath
 	_ *int64  = Child{}.BytesLogical
 	_         = [...]TreemapNodeKind{TreemapNodeKindDir, TreemapNodeKindFiles, TreemapNodeKindRest}

@@ -354,7 +354,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Largest or oldest files below a node */
+        /** Largest or oldest files below a node, or directly in it */
         get: operations["getTop"];
         put?: never;
         post?: never;
@@ -924,6 +924,8 @@ export interface components {
              * @enum {string}
              */
             admin_window?: "7d" | "30d" | "90d";
+            /** @description Width in pixels of the browse page's side panel (default 420). */
+            panel_width?: number;
         };
         AuthConfig: {
             local: boolean;
@@ -1886,6 +1888,8 @@ export interface operations {
         parameters: {
             query: {
                 kind: "largest" | "oldest";
+                /** @description `subtree` (default) ranks every file below the node; `dir` ranks only the files directly in it; `both` merges the two into one list, each file once. */
+                scope?: "subtree" | "dir" | "both";
             };
             header?: never;
             path: {

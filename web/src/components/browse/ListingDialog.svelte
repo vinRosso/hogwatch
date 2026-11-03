@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { api, ApiError } from '../../lib/api/client'
   import type { ListingCreated, ListingRequest } from '../../lib/api/types'
   import { parseBytes } from '../../lib/format'
@@ -9,9 +10,13 @@
   import Dialog from '../ui/Dialog.svelte'
   import Field from '../ui/Field.svelte'
 
-  let { open, ref, onclose }: { open: boolean; ref: string; onclose: () => void } = $props()
+  // initialMode is the mode the dialog opens with; the user can still change it.
+  let { open, ref, initialMode = 'children', onclose }: { open: boolean; ref: string; initialMode?: 'children' | 'subtree'; onclose: () => void } = $props()
 
-  let mode = $state<'children' | 'subtree'>('children')
+  let mode = $state<'children' | 'subtree'>(untrack(() => initialMode))
+  $effect(() => {
+    if (open) mode = initialMode
+  })
   let exts = $state('')
   let minSize = $state('')
   let minAge = $state('')

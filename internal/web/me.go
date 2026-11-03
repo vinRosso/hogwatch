@@ -113,6 +113,8 @@ func (a *server) SetMyPrefs(ctx context.Context, req oapi.SetMyPrefsRequestObjec
 	switch {
 	case p.Depth != nil && (*p.Depth < 1 || *p.Depth > 5):
 		return nil, bad("depth")
+	case p.PanelWidth != nil && (*p.PanelWidth < 320 || *p.PanelWidth > 900):
+		return nil, bad("panel_width")
 	case p.HistoryWindow != nil && !p.HistoryWindow.Valid():
 		return nil, bad("history_window")
 	case p.UsageWindow != nil && !p.UsageWindow.Valid():

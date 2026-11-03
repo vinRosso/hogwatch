@@ -83,6 +83,34 @@ SELECT seq, rel_name, type, size, alloc, mtime, uid FROM listing_results
 WHERE job_id = sqlc.arg(job_id) AND seq > sqlc.arg(after_seq)
 ORDER BY seq LIMIT sqlc.arg(row_limit);
 
+-- LatestUnfilteredListing finds a user's newest finished listing of a node that holds every
+-- file below it (subtree mode), or with any_mode every file directly in it: no filters,
+-- not cut at the row cap, not expired.
+-- name: LatestUnfilteredListing :one
+SELECT id FROM jobs
+WHERE kind = 'listing' AND status = 'done'
+  AND target_node = sqlc.arg(target_node) AND requested_by = sqlc.arg(requested_by)
+  AND (sqlc.arg(any_mode) = 1 OR json_extract(params, '$.mode') = 'subtree')
+  AND json_extract(params, '$.exts') IS NULL
+  AND json_extract(params, '$.min_size') IS NULL
+  AND json_extract(params, '$.min_age_days') IS NULL
+  AND json_extract(progress, '$.truncated') = 0
+  AND (expires_at IS NULL OR expires_at >= sqlc.arg(now))
+ORDER BY id DESC LIMIT 1;
+
+-- With direct = 1 only the files directly in the listed node count (no "/" in the name).
+-- name: TopListingLargest :many
+SELECT rel_name, size, alloc, mtime FROM listing_results
+WHERE job_id = sqlc.arg(job_id) AND type <> 'dir'
+  AND (sqlc.arg(direct) = 0 OR instr(rel_name, CAST('/' AS BLOB)) = 0)
+ORDER BY size DESC, rel_name LIMIT sqlc.arg(row_limit);
+
+-- name: TopListingOldest :many
+SELECT rel_name, size, alloc, mtime FROM listing_results
+WHERE job_id = sqlc.arg(job_id) AND type <> 'dir'
+  AND (sqlc.arg(direct) = 0 OR instr(rel_name, CAST('/' AS BLOB)) = 0)
+ORDER BY mtime, size DESC, rel_name LIMIT sqlc.arg(row_limit);
+
 -- name: HasActiveCancel :one
 SELECT CAST(EXISTS (
     SELECT 1 FROM jobs

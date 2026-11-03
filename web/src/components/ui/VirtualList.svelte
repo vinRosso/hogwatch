@@ -6,6 +6,7 @@
     count,
     rowHeight = 32,
     height = 420,
+    fill = false,
     row,
     load,
     label,
@@ -13,6 +14,7 @@
     count: number
     rowHeight?: number
     height?: number
+    fill?: boolean
     row: Snippet<[number]>
     load?: (start: number, end: number) => void
     label?: string
@@ -30,9 +32,10 @@
 
 <div
   class="vl"
+  class:fill
   role="list"
   aria-label={label}
-  style:height={`${Math.min(height, count * rowHeight)}px`}
+  style:height={fill ? undefined : `${Math.min(height, count * rowHeight)}px`}
   bind:clientHeight={viewport}
   onscroll={(e) => (top = e.currentTarget.scrollTop)}
 >
@@ -48,7 +51,13 @@
 <style>
   .vl {
     overflow-y: auto;
+    /* A fixed gutter, so a header above the list can reserve the same width. */
+    scrollbar-gutter: stable;
     position: relative;
+  }
+  .vl.fill {
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .inner {
     position: relative;

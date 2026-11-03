@@ -18,7 +18,9 @@ func callerOf(ctx context.Context) (repo.Caller, error) {
 	return callerFor(u), nil
 }
 
-func callerFor(u session.User) repo.Caller { return repo.Caller{UserID: u.ID, Admin: u.IsAdmin()} }
+func callerFor(u session.User) repo.Caller {
+	return repo.Caller{UserID: u.ID, Admin: u.IsAdmin(), CanList: u.CanListFiles || u.IsAdmin()}
+}
 
 type anchorJSON = struct {
 	Found    bool             `json:"found"`

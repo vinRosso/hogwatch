@@ -167,16 +167,16 @@ func (e ListingCreatedStatus) Valid() bool {
 
 // Defines values for ListingRequestMode.
 const (
-	Children ListingRequestMode = "children"
-	Subtree  ListingRequestMode = "subtree"
+	ListingRequestModeChildren ListingRequestMode = "children"
+	ListingRequestModeSubtree  ListingRequestMode = "subtree"
 )
 
 // Valid indicates whether the value is a known member of the ListingRequestMode enum.
 func (e ListingRequestMode) Valid() bool {
 	switch e {
-	case Children:
+	case ListingRequestModeChildren:
 		return true
-	case Subtree:
+	case ListingRequestModeSubtree:
 		return true
 	default:
 		return false
@@ -585,6 +585,27 @@ func (e GetTopParamsKind) Valid() bool {
 	}
 }
 
+// Defines values for GetTopParamsScope.
+const (
+	GetTopParamsScopeBoth    GetTopParamsScope = "both"
+	GetTopParamsScopeDir     GetTopParamsScope = "dir"
+	GetTopParamsScopeSubtree GetTopParamsScope = "subtree"
+)
+
+// Valid indicates whether the value is a known member of the GetTopParamsScope enum.
+func (e GetTopParamsScope) Valid() bool {
+	switch e {
+	case GetTopParamsScopeBoth:
+		return true
+	case GetTopParamsScopeDir:
+		return true
+	case GetTopParamsScopeSubtree:
+		return true
+	default:
+		return false
+	}
+}
+
 // AdminRoot defines model for AdminRoot.
 type AdminRoot struct {
 	ContainerPath string   `json:"container_path"`
@@ -897,6 +918,9 @@ type Prefs struct {
 
 	// HistoryWindow Window of the node history chart.
 	HistoryWindow *PrefsHistoryWindow `json:"history_window,omitempty"`
+
+	// PanelWidth Width in pixels of the browse page's side panel (default 420).
+	PanelWidth *int `json:"panel_width,omitempty"`
 
 	// UsageWindow Growth window of the usage page.
 	UsageWindow *PrefsUsageWindow `json:"usage_window,omitempty"`
@@ -1278,10 +1302,16 @@ type GetNodeHistoryParamsWindow string
 // GetTopParams defines parameters for GetTop.
 type GetTopParams struct {
 	Kind GetTopParamsKind `form:"kind" json:"kind"`
+
+	// Scope `subtree` (default) ranks every file below the node; `dir` ranks only the files directly in it; `both` merges the two into one list, each file once.
+	Scope *GetTopParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
 }
 
 // GetTopParamsKind defines parameters for GetTop.
 type GetTopParamsKind string
+
+// GetTopParamsScope defines parameters for GetTop.
+type GetTopParamsScope string
 
 // GetTreemapParams defines parameters for GetTreemap.
 type GetTreemapParams struct {
@@ -1492,7 +1522,7 @@ type ServerInterface interface {
 	// GetNodeHistory Size over time
 	// (GET /api/v1/nodes/{ref}/history)
 	GetNodeHistory(w http.ResponseWriter, r *http.Request, ref Ref, params GetNodeHistoryParams)
-	// GetTop Largest or oldest files below a node
+	// GetTop Largest or oldest files below a node, or directly in it
 	// (GET /api/v1/nodes/{ref}/top)
 	GetTop(w http.ResponseWriter, r *http.Request, ref Ref, params GetTopParams)
 	// GetTreemap Nested children for the treemap
@@ -2841,6 +2871,19 @@ func (siw *ServerInterfaceWrapper) GetTop(w http.ResponseWriter, r *http.Request
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "scope" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "scope", r.URL.Query(), &params.Scope, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "scope"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scope", Err: err})
 		}
 		return
 	}
@@ -6173,7 +6216,7 @@ type StrictServerInterface interface {
 	// GetNodeHistory Size over time
 	// (GET /api/v1/nodes/{ref}/history)
 	GetNodeHistory(ctx context.Context, request GetNodeHistoryRequestObject) (GetNodeHistoryResponseObject, error)
-	// GetTop Largest or oldest files below a node
+	// GetTop Largest or oldest files below a node, or directly in it
 	// (GET /api/v1/nodes/{ref}/top)
 	GetTop(ctx context.Context, request GetTopRequestObject) (GetTopResponseObject, error)
 	// GetTreemap Nested children for the treemap

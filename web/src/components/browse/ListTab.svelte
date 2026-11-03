@@ -4,7 +4,7 @@
   import type { Child, ChildrenPage } from '../../lib/api/types'
   import { browse } from '../../lib/browse.svelte'
   import { displayName } from '../../lib/fname'
-  import { formatAge, formatBytes, formatCount } from '../../lib/format'
+  import { formatAgeShort, formatBytes, formatCount, formatCountShort } from '../../lib/format'
   import { t } from '../../lib/i18n/en'
   import { ownerOf } from '../../lib/owners.svelte'
   import { session } from '../../lib/session.svelte'
@@ -95,7 +95,7 @@
 {:else if loaded && items.length === 0}
   <EmptyState title={t.nav.browse} body={t.list.empty} />
 {:else}
-  <VirtualList count={items.length + (cursor ? 1 : 0)} rowHeight={32} height={420} label={t.tabs.list} load={need}>
+  <VirtualList count={items.length + (cursor ? 1 : 0)} rowHeight={32} fill label={t.tabs.list} load={need}>
     {#snippet row(i)}
       {@const c = items[i]}
       {#if c}
@@ -108,8 +108,8 @@
           <span class="name" style="unicode-bidi: isolate" title={label(c)}>{label(c)}</span>
           <span class="mono num">{formatBytes(c.bytes_alloc)}</span>
           <span class="bar"><span style:width={`${Math.min(100, (c.bytes_alloc / denom) * 100)}%`}></span></span>
-          <span class="mono num">{formatCount(c.files)}</span>
-          <span class="mono num">{formatAge(c.mtime, Math.floor(Date.now() / 1000))}</span>
+          <span class="mono num" title={formatCount(c.files)}>{formatCountShort(c.files)}</span>
+          <span class="mono num">{formatAgeShort(c.mtime, Math.floor(Date.now() / 1000))}</span>
         </button>
       {:else}
         <span class="more">{t.list.more}</span>
@@ -126,6 +126,20 @@
     padding: 4px 6px;
     border-bottom: 1px solid var(--hair);
     font-size: 12px;
+    /* Reserve the width of the list's scrollbar, invisibly, so the headers sit over their columns. */
+    overflow-x: hidden;
+    overflow-y: scroll;
+    flex-shrink: 0;
+    scrollbar-color: transparent transparent;
+  }
+  /* Size, Files and Newest are right-aligned like their values. */
+  .head > :nth-child(3),
+  .head > :nth-child(5),
+  .head > :nth-child(6) {
+    text-align: right;
+  }
+  .head > :nth-child(4) {
+    text-align: center;
   }
   .h {
     border: none;

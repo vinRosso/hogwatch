@@ -13,7 +13,7 @@
   import ListTab from './ListTab.svelte'
   import TopTab from './TopTab.svelte'
 
-  let { onlist }: { onlist?: (ref: string) => void } = $props()
+  let { onlist }: { onlist?: (ref: string, mode?: 'children' | 'subtree') => void } = $props()
 
   // Scan errors are for admins; the history chart is its own card.
   const tabs = $derived([
@@ -77,8 +77,9 @@
   }
   .body {
     flex: 1;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     padding-top: 8px;
-    overflow-y: auto;
   }
 </style>

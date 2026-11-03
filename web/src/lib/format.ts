@@ -1,3 +1,5 @@
+import { t } from './i18n/en'
+
 const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB']
 
 /** SI bytes (1 kB = 1000 B) with 3 significant digits, as the spec's bucket names do. */
@@ -31,6 +33,14 @@ export function formatCount(n: number): string {
   return Math.round(n).toLocaleString('en-US')
 }
 
+/** Like formatCount, but from 100,000 up as "556k" or "1.2M" for narrow columns. */
+export function formatCountShort(n: number): string {
+  if (n < 100_000) return formatCount(n)
+  const k = Math.round(n / 1000)
+  if (k < 1000) return `${k}k`
+  return `${parseFloat((n / 1e6).toFixed(1))}M`
+}
+
 /** Calendar date (UTC) as YYYY-MM-DD. */
 export function formatDate(unixSec: number): string {
   return new Date(unixSec * 1000).toISOString().slice(0, 10)
@@ -48,6 +58,18 @@ export function formatDuration(sec: number): string {
   const m = Math.floor(s / 60)
   if (m < 60) return `${m} min ${String(s % 60).padStart(2, '0')} s`
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`
+}
+
+/** Compact UTC date: "23 Mar" within the current year, "Mar 2025" before it. */
+export function formatDateShort(unixSec: number, now: number): string {
+  const d = new Date(unixSec * 1000)
+  const month = t.months[d.getUTCMonth()]
+  return d.getUTCFullYear() === new Date(now * 1000).getUTCFullYear() ? `${d.getUTCDate()} ${month}` : `${month} ${d.getUTCFullYear()}`
+}
+
+/** formatAge for narrow columns: the compact date once it is no longer relative. */
+export function formatAgeShort(unixSec: number, now: number): string {
+  return now - unixSec < 15 * 86400 ? formatAge(unixSec, now) : formatDateShort(unixSec, now)
 }
 
 export function formatAge(unixSec: number, now: number): string {

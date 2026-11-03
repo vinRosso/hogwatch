@@ -201,8 +201,9 @@ func (r *Repo) ownFiles(ctx context.Context, e *genEntry, s Scope, d gen.Dir, f 
 }
 
 // Children returns one page of the children of ref, plus the cursor of the next
-// page (nil on the last). The first page also starts with the directory's own
-// files entry when it has any (in addition to Limit directories).
+// page (nil on the last). The directory's own files entry, when it has any, is
+// sorted in among the directories like one with an empty name; the page it falls
+// on holds it in addition to Limit directories.
 func (r *Repo) Children(ctx context.Context, s Scope, ref noderef.Ref, q ChildQuery) ([]Child, *ChildCursor, error) {
 	if !s.allows(ref.ScanID) {
 		return nil, nil, ErrNotFound
@@ -235,28 +236,28 @@ func (r *Repo) Children(ctx context.Context, s Scope, ref noderef.Ref, q ChildQu
 	var next *ChildCursor
 	if len(rows) > limit {
 		rows = rows[:limit]
-		last := rows[len(rows)-1]
-		next = &ChildCursor{Name: bytes.Clone(last.name)}
-		switch q.Sort {
-		case SortSize:
-			next.Key = last.bytesAl
-		case SortFiles:
-			next.Key = last.files
-		case SortMtime:
-			next.Key = last.mtime
-		}
+		next = &ChildCursor{Key: sortKey(q.Sort, rows[len(rows)-1]), Name: bytes.Clone(rows[len(rows)-1].name)}
+	}
+	// The own-files entry sorts like a directory with an empty name. A page covers
+	// the positions after the cursor up to its last row, so the entry lands on
+	// exactly one page: the one whose range holds its position.
+	own, hasOwn, err := r.ownFiles(ctx, e, s, d, q.Filter)
+	if err != nil {
+		return nil, nil, r.fix(ref.ScanID, err)
+	}
+	ownKey := ownSortKey(q.Sort, own)
+	if hasOwn && q.After != nil && cmpPos(q.Sort, ownKey, nil, q.After.Key, q.After.Name) <= 0 {
+		hasOwn = false
+	}
+	if hasOwn && next != nil && cmpPos(q.Sort, ownKey, nil, next.Key, next.Name) > 0 {
+		hasOwn = false
 	}
 	items := make([]Child, 0, len(rows)+1)
-	if q.After == nil {
-		own, ok, err := r.ownFiles(ctx, e, s, d, q.Filter)
-		if err != nil {
-			return nil, nil, r.fix(ref.ScanID, err)
-		}
-		if ok {
-			items = append(items, own)
-		}
-	}
 	for _, c := range rows {
+		if hasOwn && cmpPos(q.Sort, ownKey, nil, sortKey(q.Sort, c), c.name) < 0 {
+			items = append(items, own)
+			hasOwn = false
+		}
 		cr := noderef.Ref{ScanID: ref.ScanID, DirID: c.id}
 		it := Child{Kind: ChildDir, Ref: &cr, Name: c.name, Files: c.files, BytesAlloc: c.bytesAl, Mtime: c.mtime}
 		if !filtered(q.Filter) {
@@ -265,5 +266,45 @@ func (r *Repo) Children(ctx context.Context, s Scope, ref noderef.Ref, q ChildQu
 		}
 		items = append(items, it)
 	}
+	if hasOwn {
+		items = append(items, own)
+	}
 	return items, next, nil
+}
+
+// sortKey is the value a directory row is ordered by (zero for SortName).
+func sortKey(sort ChildSort, c childRow) int64 {
+	switch sort {
+	case SortSize:
+		return c.bytesAl
+	case SortFiles:
+		return c.files
+	case SortMtime:
+		return c.mtime
+	}
+	return 0
+}
+
+func ownSortKey(sort ChildSort, c Child) int64 {
+	switch sort {
+	case SortSize:
+		return c.BytesAlloc
+	case SortFiles:
+		return c.Files
+	case SortMtime:
+		return c.Mtime
+	}
+	return 0
+}
+
+// cmpPos compares two positions in the page order: key descending (ignored for
+// SortName), then name ascending. It is negative when a comes first.
+func cmpPos(sort ChildSort, aKey int64, aName []byte, bKey int64, bName []byte) int {
+	if sort != SortName && aKey != bKey {
+		if aKey > bKey {
+			return -1
+		}
+		return 1
+	}
+	return bytes.Compare(aName, bName)
 }

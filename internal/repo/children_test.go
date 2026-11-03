@@ -59,8 +59,8 @@ func TestChildren_Sorts(t *testing.T) {
 		sort ChildSort
 		want []string
 	}{
-		{SortSize, []string{"<files>", "b", "c", "e", "a", "d"}},
-		{SortFiles, []string{"<files>", "a", "d", "c", "e", "b"}},
+		{SortSize, []string{"b", "c", "e", "a", "<files>", "d"}},
+		{SortFiles, []string{"a", "d", "c", "<files>", "e", "b"}},
 		{SortMtime, []string{"<files>", "e", "d", "a", "c", "b"}},
 		{SortName, []string{"<files>", "a", "b", "c", "d", "e"}},
 	} {
@@ -76,21 +76,24 @@ func TestChildren_Paging(t *testing.T) {
 	f.scan(1, kids...)
 	for _, sort := range []ChildSort{SortSize, SortFiles, SortMtime, SortName} {
 		full, _ := page(t, f, ScopeAll(), "p", ChildQuery{Sort: sort, Limit: 100})
-		var got []string
-		var after *ChildCursor
-		for i := 0; ; i++ {
-			if i > 10 {
-				t.Fatalf("sort %d does not end", sort)
+		// Every page size puts the files entry on exactly one page, wherever it falls.
+		for limit := 1; limit <= 6; limit++ {
+			var got []string
+			var after *ChildCursor
+			for i := 0; ; i++ {
+				if i > 10 {
+					t.Fatalf("sort %d limit %d does not end", sort, limit)
+				}
+				items, next := page(t, f, ScopeAll(), "p", ChildQuery{Sort: sort, Limit: limit, After: after})
+				got = append(got, names(items)...)
+				if next == nil {
+					break
+				}
+				after = next
 			}
-			items, next := page(t, f, ScopeAll(), "p", ChildQuery{Sort: sort, Limit: 2, After: after})
-			got = append(got, names(items)...)
-			if next == nil {
-				break
+			if want := names(full); !slices.Equal(got, want) {
+				t.Errorf("sort %d limit %d paged = %v, want %v", sort, limit, got, want)
 			}
-			after = next
-		}
-		if want := names(full); !slices.Equal(got, want) {
-			t.Errorf("sort %d paged = %v, want %v", sort, got, want)
 		}
 	}
 }
@@ -122,7 +125,7 @@ func TestChildren_Filter(t *testing.T) {
 	f.scan(1, kids...)
 	vf := cube.Filter{Categories: 1 << cube.Video}
 	items, _ := page(t, f, ScopeAll(), "p", ChildQuery{Sort: SortSize, Filter: vf, Limit: 100})
-	if got, want := names(items), []string{"<files>", "b", "e", "a"}; !slices.Equal(got, want) {
+	if got, want := names(items), []string{"b", "e", "a", "<files>"}; !slices.Equal(got, want) {
 		t.Fatalf("filtered size order = %v, want %v", got, want)
 	}
 	for _, c := range items {
@@ -130,14 +133,14 @@ func TestChildren_Filter(t *testing.T) {
 			t.Errorf("%q has bytes_logical under a filter", c.Name)
 		}
 	}
-	if own := items[0]; own.BytesAlloc != 5 || own.Files != 1 {
+	if own := items[3]; own.BytesAlloc != 5 || own.Files != 1 {
 		t.Errorf("filtered own-files = %+v, want 5 bytes, 1 file", own)
 	}
-	if a := items[3]; a.BytesAlloc != 20 || a.Files != 2 {
+	if a := items[2]; a.BytesAlloc != 20 || a.Files != 2 {
 		t.Errorf("filtered a = %+v, want 20 bytes, 2 files", a)
 	}
 	items, _ = page(t, f, ScopeAll(), "p", ChildQuery{Sort: SortFiles, Filter: vf, Limit: 100})
-	if got, want := names(items), []string{"<files>", "a", "e", "b"}; !slices.Equal(got, want) {
+	if got, want := names(items), []string{"a", "e", "<files>", "b"}; !slices.Equal(got, want) {
 		t.Errorf("filtered files order = %v, want %v", got, want)
 	}
 	// Nothing matches: no entries at all.

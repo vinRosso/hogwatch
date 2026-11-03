@@ -18,6 +18,57 @@
 
   const ref = $derived(match('/browse/:ref', router.path)?.ref ?? null)
   let listRef = $state<string | null>(null)
+  let listMode = $state<'children' | 'subtree'>('children')
+
+  // The side panel's width, dragged by its left edge and kept in the account's prefs.
+  const PANEL_MIN = 320
+  const PANEL_DEFAULT = 420
+  let vw = $state(window.innerWidth)
+  const clampPanel = (w: number) => Math.round(Math.min(Math.max(PANEL_MIN, Math.min(900, vw * 0.6)), Math.max(PANEL_MIN, w)))
+  // The width while it is being changed; once saved, the prefs hold it (setPrefs updates them at once).
+  let dragged = $state<number | null>(null)
+  const panelW = $derived(dragged ?? clampPanel(session.prefs().panel_width ?? PANEL_DEFAULT))
+  let dragging = $state(false)
+
+  function savePanel() {
+    if (dragged === null) return
+    session.setPrefs({ panel_width: dragged })
+    dragged = null
+  }
+
+  function dragStart(e: PointerEvent) {
+    if (e.button !== 0) return
+    const x0 = e.clientX
+    const w0 = panelW
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    dragging = true
+    const move = (m: PointerEvent) => (dragged = clampPanel(w0 + x0 - m.clientX))
+    const end = () => {
+      dragging = false
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', end)
+      el.removeEventListener('pointercancel', end)
+      savePanel()
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', end)
+    el.addEventListener('pointercancel', end)
+  }
+
+  function dragKey(e: KeyboardEvent) {
+    const step = e.shiftKey ? 60 : 20
+    if (e.key === 'ArrowLeft') dragged = clampPanel(panelW + step)
+    else if (e.key === 'ArrowRight') dragged = clampPanel(panelW - step)
+    else if (e.key === 'Home') dragged = PANEL_DEFAULT
+    else return
+    e.preventDefault()
+  }
+
+  // Saved on release, so holding a key sends one request, not one per repeat.
+  function dragKeyUp(e: KeyboardEvent) {
+    if (['ArrowLeft', 'ArrowRight', 'Home'].includes(e.key)) savePanel()
+  }
 
   // Folder colors come from the user paths; the views redraw when they load.
   $effect(() => {
@@ -53,6 +104,8 @@
   })
 </script>
 
+<svelte:window bind:innerWidth={vw} />
+
 <div class="browse">
   {#if browse.notice}<p class="notice" role="status">{browse.notice}</p>{/if}
   {#if browse.status === 'empty'}
@@ -62,7 +115,7 @@
       <Button onclick={() => browse.start(ref)}>{t.common.retry}</Button>
     </EmptyState>
   {:else}
-    <div class="split">
+    <div class="split" class:dragging style:--panel-w={`${panelW}px`}>
       <section class="left" aria-busy={browse.status === 'loading'}>
         {#if session.me?.is_admin}
           <div class="overview">
@@ -85,12 +138,28 @@
           {/if}
         </div>
       </section>
-      <aside class="right"><RightPanel onlist={(r) => (listRef = r)} /></aside>
+      <aside class="right">
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+        <div
+          class="grip"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t.browse.resizePanel}
+          aria-valuenow={panelW}
+          aria-valuemin={PANEL_MIN}
+          tabindex="0"
+          onpointerdown={dragStart}
+          onkeydown={dragKey}
+          onkeyup={dragKeyUp}
+          ondblclick={() => ((dragged = PANEL_DEFAULT), savePanel())}
+        ></div>
+        <RightPanel onlist={(r, mode) => ((listRef = r), (listMode = mode ?? 'children'))} />
+      </aside>
     </div>
   {/if}
 </div>
 
-<ListingDialog open={listRef !== null} ref={listRef ?? ''} onclose={() => (listRef = null)} />
+<ListingDialog open={listRef !== null} ref={listRef ?? ''} initialMode={listMode} onclose={() => (listRef = null)} />
 
 <style>
   .browse {
@@ -108,11 +177,15 @@
   .split {
     display: grid;
     flex: 1;
-    grid-template-columns: minmax(0, 1fr) 420px;
+    grid-template-columns: minmax(0, 1fr) var(--panel-w, 420px);
     grid-template-rows: minmax(0, 1fr);
     gap: 16px;
     min-height: 0;
     padding: 16px 20px;
+  }
+  .split.dragging {
+    cursor: col-resize;
+    user-select: none;
   }
   .left,
   .right {
@@ -120,6 +193,26 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+  }
+  .right {
+    position: relative;
+  }
+  /* A strip in the gap left of the panel; wider than it looks so it is easy to grab. */
+  .grip {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -14px;
+    width: 12px;
+    cursor: col-resize;
+    touch-action: none;
+    border-radius: 6px;
+    z-index: 1;
+  }
+  .grip:hover,
+  .grip:focus-visible,
+  .dragging .grip {
+    background: var(--hair);
   }
   .overview {
     display: grid;
@@ -150,6 +243,9 @@
     .split {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto;
+    }
+    .grip {
+      display: none;
     }
     /* Stacked the page has no fixed height to share out, so the treemap takes its own. */
     .card > :global(.wrap) {

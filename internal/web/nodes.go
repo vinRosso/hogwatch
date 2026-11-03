@@ -235,7 +235,23 @@ func (a *server) GetTop(ctx context.Context, req oapi.GetTopRequestObject) (oapi
 	if kind != "largest" && kind != "oldest" {
 		return nil, badRequest("invalid kind")
 	}
-	items, stored, err := a.repo.Top(ctx, s, ref, kind)
+	scope := repo.TopSubtree
+	if sc := req.Params.Scope; sc != nil {
+		switch *sc {
+		case oapi.GetTopParamsScopeSubtree:
+		case oapi.GetTopParamsScopeDir:
+			scope = repo.TopDir
+		case oapi.GetTopParamsScopeBoth:
+			scope = repo.TopBoth
+		default:
+			return nil, badRequest("invalid scope")
+		}
+	}
+	c, err := callerOf(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items, stored, err := a.repo.Top(ctx, c, s, ref, kind, scope, a.now())
 	if err != nil {
 		return nil, err
 	}

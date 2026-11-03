@@ -202,9 +202,42 @@ func TestGetTop_Handler(t *testing.T) {
 	if m["stored"] != false || len(m["items"].([]any)) != 0 {
 		t.Errorf("oldest = %v", m)
 	}
+	// 1.3 has no list of its own; its file comes from the list of 1.2.
 	m = getJSON(t, e, "owner", "/api/v1/nodes/1.3/top?kind=largest", 200)
+	items = m["items"].([]any)
+	if m["stored"] != true || len(items) != 1 || items[0].(map[string]any)["name"] != "big.bin" {
+		t.Errorf("a node without its own list: %v", m)
+	}
+	m = getJSON(t, e, "admin", "/api/v1/nodes/1.4/top?kind=largest", 200)
 	if m["stored"] != false {
-		t.Errorf("a node without rows says stored: %v", m)
+		t.Errorf("a node with no file in any list says stored: %v", m)
+	}
+	// Only the files directly in a node: 1.3 holds big.bin itself, 1.4 has files no list names.
+	m = getJSON(t, e, "owner", "/api/v1/nodes/1.3/top?kind=largest&scope=dir", 200)
+	items = m["items"].([]any)
+	if m["stored"] != true || len(items) != 1 || items[0].(map[string]any)["name"] != "big.bin" {
+		t.Errorf("scope=dir at 1.3 = %v", m)
+	}
+	m = getJSON(t, e, "admin", "/api/v1/nodes/1.4/top?kind=largest&scope=dir", 200)
+	if m["stored"] != false {
+		t.Errorf("scope=dir at 1.4 should say not stored: %v", m)
+	}
+	getJSON(t, e, "admin", "/api/v1/nodes/1.4/top?kind=largest&scope=bogus", 400)
+	m = getJSON(t, e, "owner", "/api/v1/nodes/1.3/top?kind=largest&scope=both", 200)
+	if items = m["items"].([]any); m["stored"] != true || len(items) < 1 || items[0].(map[string]any)["name"] != "big.bin" {
+		t.Errorf("scope=both at 1.3 = %v", m)
+	}
+	if m = getJSON(t, e, "admin", "/api/v1/nodes/1.4/top?kind=largest&scope=both", 200); m["stored"] != false {
+		t.Errorf("scope=both at 1.4 should say not stored: %v", m)
+	}
+	// The admin's own finished, unfiltered listing of 1.4 feeds its top files.
+	e.exec(`INSERT INTO jobs (id, kind, root_id, target_node, params, requested_by, status, progress, created_at, expires_at)
+		VALUES (7, 'listing', 1, '1.4', '{"mode":"subtree"}', ?, 'done', '{"rows":1,"truncated":false}', 1, ?)`, e.users["admin"], e.now.Unix()+3600)
+	e.exec(`INSERT INTO listing_results (job_id, seq, rel_name, type, size, alloc, mtime, uid) VALUES (7, 1, ?, 'file', 5, 8, 9, 0)`, []byte("f.bin"))
+	m = getJSON(t, e, "admin", "/api/v1/nodes/1.4/top?kind=largest", 200)
+	items = m["items"].([]any)
+	if m["stored"] != true || len(items) != 1 || items[0].(map[string]any)["name"] != "f.bin" || items[0].(map[string]any)["dir_ref"] != "1.4" {
+		t.Errorf("top from a listing = %v", m)
 	}
 	getJSON(t, e, "owner", "/api/v1/nodes/1.2/top?kind=x", 400)
 	getJSON(t, e, "owner", "/api/v1/nodes/1.2/top", 400)

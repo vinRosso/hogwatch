@@ -15,6 +15,8 @@ import (
 type Caller struct {
 	UserID int64
 	Admin  bool
+	// CanList is set for a user who may request file listings (can_list_files, or an admin).
+	CanList bool
 }
 
 // boolSetting reads a boolean setting. A missing row gives the registry
