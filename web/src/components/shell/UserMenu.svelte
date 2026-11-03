@@ -42,6 +42,7 @@
     border: var(--edge);
     border-radius: var(--r);
     box-shadow: var(--pop);
+    overflow: hidden;
     display: grid;
     z-index: 40;
   }

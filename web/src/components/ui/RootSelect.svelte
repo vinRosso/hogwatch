@@ -149,6 +149,7 @@
     border: var(--edge);
     border-radius: var(--r);
     box-shadow: var(--pop);
+    overflow: hidden;
     display: grid;
     padding: 4px 0;
     z-index: 40;

@@ -922,6 +922,9 @@ type Prefs struct {
 	// PanelWidth Width in pixels of the browse page's side panel (default 420).
 	PanelWidth *int `json:"panel_width,omitempty"`
 
+	// RootId The root last picked in the browse page's root picker.
+	RootId *int `json:"root_id,omitempty"`
+
 	// UsageWindow Growth window of the usage page.
 	UsageWindow *PrefsUsageWindow `json:"usage_window,omitempty"`
 }

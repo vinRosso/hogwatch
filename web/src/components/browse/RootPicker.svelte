@@ -46,8 +46,10 @@
 
   function pick(id: number) {
     close()
-    if (id !== session.rootId) session.rootId = id
-    else if (!here) ongo()
+    if (id !== session.rootId) {
+      session.rootId = id
+      session.setPrefs({ root_id: id })
+    } else if (!here) ongo()
   }
 
   function nav(e: KeyboardEvent) {
@@ -230,12 +232,14 @@
     border: var(--edge);
     border-radius: var(--r);
     box-shadow: var(--pop);
+    overflow: hidden;
     display: grid;
     padding: 4px 0;
     z-index: 40;
   }
   .pop button {
     display: flex;
+    align-items: center;
     gap: 8px;
     padding: 8px 12px;
     text-align: left;

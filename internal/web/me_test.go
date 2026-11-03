@@ -139,14 +139,14 @@ func TestPrefs_PatchMergesPerAccount(t *testing.T) {
 	patch := func(role, body string) *httptest.ResponseRecorder {
 		return e.do(req{method: "PATCH", path: "/api/v1/me/prefs", role: role, body: body})
 	}
-	if w := patch("plain", `{"depth":4,"usage_window":"7d","panel_width":520}`); w.Code != http.StatusOK {
+	if w := patch("plain", `{"depth":4,"usage_window":"7d","panel_width":520,"root_id":2}`); w.Code != http.StatusOK {
 		t.Fatalf("PATCH: %d %s", w.Code, w.Body)
 	}
 	if w := patch("plain", `{"depth":3}`); w.Code != http.StatusOK {
 		t.Fatalf("second PATCH: %d %s", w.Code, w.Body)
 	}
 	got := prefsOfMe(t, e, "plain")
-	if got["depth"] != float64(3) || got["usage_window"] != "7d" || got["panel_width"] != float64(520) {
+	if got["depth"] != float64(3) || got["usage_window"] != "7d" || got["panel_width"] != float64(520) || got["root_id"] != float64(2) {
 		t.Fatalf("prefs after two patches = %v, want depth 3 and usage_window 7d kept", got)
 	}
 	if other := prefsOfMe(t, e, "owner"); len(other) != 0 {
@@ -165,7 +165,7 @@ func TestPrefs_PatchMergesPerAccount(t *testing.T) {
 
 func TestPrefs_RejectsBadValues(t *testing.T) {
 	e := newEnv(t)
-	for _, body := range []string{`{"depth":0}`, `{"depth":6}`, `{"history_window":"2y"}`, `{"usage_window":"1y"}`, `{"admin_window":"all"}`, `{"panel_width":319}`, `{"panel_width":901}`} {
+	for _, body := range []string{`{"depth":0}`, `{"depth":6}`, `{"history_window":"2y"}`, `{"usage_window":"1y"}`, `{"admin_window":"all"}`, `{"panel_width":319}`, `{"panel_width":901}`, `{"root_id":0}`} {
 		if w := e.do(req{method: "PATCH", path: "/api/v1/me/prefs", role: "plain", body: body}); w.Code != http.StatusBadRequest {
 			t.Errorf("PATCH %s: %d, want 400", body, w.Code)
 		}

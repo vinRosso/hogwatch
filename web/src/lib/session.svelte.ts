@@ -27,7 +27,9 @@ export const session = $state({
       session.usage = usage
       session.roots = roots.items
       if (session.rootId === null || !roots.items.some((r) => r.id === session.rootId)) {
-        session.rootId = roots.items[0]?.id ?? null
+        // The root the account last picked, if it is still visible to them.
+        const saved = roots.items.find((r) => r.id === me.prefs?.root_id)
+        session.rootId = saved?.id ?? roots.items[0]?.id ?? null
       }
     } catch (e) {
       session.me = null

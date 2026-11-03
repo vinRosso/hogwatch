@@ -726,6 +726,7 @@ components:
         usage_window: { type: string, enum: ["7d", "30d", "90d"], description: Growth window of the usage page. }
         admin_window: { type: string, enum: ["7d", "30d", "90d"], description: Growth window of the admin users and mounts views. }
         panel_width: { type: integer, minimum: 320, maximum: 900, description: "Width in pixels of the browse page's side panel (default 420)." }
+        root_id: { type: integer, minimum: 1, description: The root last picked in the browse page's root picker. }
     AuthConfig:
       type: object
       required: [local, oidc]

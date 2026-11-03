@@ -926,6 +926,8 @@ export interface components {
             admin_window?: "7d" | "30d" | "90d";
             /** @description Width in pixels of the browse page's side panel (default 420). */
             panel_width?: number;
+            /** @description The root last picked in the browse page's root picker. */
+            root_id?: number;
         };
         AuthConfig: {
             local: boolean;

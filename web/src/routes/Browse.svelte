@@ -108,55 +108,53 @@
 
 <div class="browse">
   {#if browse.notice}<p class="notice" role="status">{browse.notice}</p>{/if}
-  {#if browse.status === 'empty'}
-    <EmptyState title={t.nav.browse} body={browse.emptyReason} />
-  {:else if browse.status === 'error'}
-    <EmptyState title={t.common.error} body={browse.emptyReason}>
-      <Button onclick={() => browse.start(ref)}>{t.common.retry}</Button>
-    </EmptyState>
-  {:else}
-    <div class="split" class:dragging style:--panel-w={`${panelW}px`}>
-      <section class="left" aria-busy={browse.status === 'loading'}>
-        {#if session.me?.is_admin}
-          <div class="overview">
-            <UsersOverview />
-            <RootsOverview />
-          </div>
-        {/if}
-        <div class="card">
-          <Toolbar>
-            {#snippet actions()}{#if browse.node}<ExportMenu ref={browse.node.ref} />{/if}{/snippet}
-          </Toolbar>
-          {#if browse.node}
-            <Treemap
-              ref={browse.node.ref}
-              root_id={browse.node.root_id}
-              rel_path={browse.node.rel_path}
-              filter={filterToParam(browse.filter)}
-              depth={browse.depth}
-            />
-          {/if}
+  <div class="split" class:dragging style:--panel-w={`${panelW}px`}>
+    <section class="left" aria-busy={browse.status === 'loading'}>
+      {#if session.me?.is_admin}
+        <div class="overview">
+          <UsersOverview />
+          <RootsOverview />
         </div>
-      </section>
-      <aside class="right">
-        <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-        <div
-          class="grip"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t.browse.resizePanel}
-          aria-valuenow={panelW}
-          aria-valuemin={PANEL_MIN}
-          tabindex="0"
-          onpointerdown={dragStart}
-          onkeydown={dragKey}
-          onkeyup={dragKeyUp}
-          ondblclick={() => ((dragged = PANEL_DEFAULT), savePanel())}
-        ></div>
-        <RightPanel onlist={(r, mode) => ((listRef = r), (listMode = mode ?? 'children'))} />
-      </aside>
-    </div>
-  {/if}
+      {/if}
+      <div class="card">
+        <Toolbar>
+          {#snippet actions()}{#if browse.node}<ExportMenu ref={browse.node.ref} />{/if}{/snippet}
+        </Toolbar>
+        {#if browse.node}
+          <Treemap
+            ref={browse.node.ref}
+            root_id={browse.node.root_id}
+            rel_path={browse.node.rel_path}
+            filter={filterToParam(browse.filter)}
+            depth={browse.depth}
+          />
+        {:else if browse.status === 'empty'}
+          <EmptyState title={t.nav.browse} body={browse.emptyReason} />
+        {:else if browse.status === 'error'}
+          <EmptyState title={t.common.error} body={browse.emptyReason}>
+            <Button onclick={() => browse.start(ref)}>{t.common.retry}</Button>
+          </EmptyState>
+        {/if}
+      </div>
+    </section>
+    <aside class="right">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+      <div
+        class="grip"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t.browse.resizePanel}
+        aria-valuenow={panelW}
+        aria-valuemin={PANEL_MIN}
+        tabindex="0"
+        onpointerdown={dragStart}
+        onkeydown={dragKey}
+        onkeyup={dragKeyUp}
+        ondblclick={() => ((dragged = PANEL_DEFAULT), savePanel())}
+      ></div>
+      <RightPanel onlist={(r, mode) => ((listRef = r), (listMode = mode ?? 'children'))} />
+    </aside>
+  </div>
 </div>
 
 <ListingDialog open={listRef !== null} ref={listRef ?? ''} initialMode={listMode} onclose={() => (listRef = null)} />
@@ -231,6 +229,13 @@
     background: var(--card);
     box-shadow: var(--pop);
     overflow: hidden;
+  }
+  /* The empty or error message sits in the middle of the space under the toolbar. */
+  .card > :global(.empty) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
   }
   .card > :global(.wrap) {
     flex: 1;

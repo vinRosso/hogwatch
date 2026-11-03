@@ -27,7 +27,7 @@
   const ref = $derived(browse.node?.ref ?? null)
 </script>
 
-<div class="panel">
+<div class="panel" class:off={!ref}>
   <div class="details">
     <Card>
       <Tabs {tabs} {active} label={t.tabs.label} onselect={(id) => setQuery({ tab: id === 'list' ? undefined : id })} />
@@ -46,12 +46,10 @@
       {/if}
     </Card>
   </div>
-  {#if ref}
-    <Card title={t.tabs.history}>
-      {#snippet actions()}<LastScan />{/snippet}
-      <HistoryTab {ref} />
-    </Card>
-  {/if}
+  <Card title={t.tabs.history}>
+    {#snippet actions()}<LastScan />{/snippet}
+    {#if ref}<HistoryTab {ref} />{/if}
+  </Card>
 </div>
 
 <style>
@@ -81,5 +79,13 @@
     flex-direction: column;
     min-height: 0;
     padding-top: 8px;
+  }
+  /* A root with nothing to show keeps the cards, empty and striped as on the disabled admin cards. */
+  /* The history card keeps its loaded height, so it does not collapse while a root loads or has no scan. */
+  .panel > :global(.card) {
+    min-height: 315px;
+  }
+  .off :global(.card) {
+    background-image: repeating-linear-gradient(-45deg, transparent 0 6px, color-mix(in srgb, var(--ink-2) 14%, transparent) 6px 7px);
   }
 </style>
