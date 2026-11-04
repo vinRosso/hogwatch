@@ -8,7 +8,7 @@
   const links = $derived([
     { href: '/browse', label: t.nav.overview },
     { href: '/usage', label: t.nav.usage },
-    { href: '/listings', label: t.nav.listings },
+    ...(session.canListFiles() ? [{ href: '/listings', label: t.nav.listings }] : []),
     ...(session.me?.is_admin ? [{ href: '/admin', label: t.nav.admin }] : []),
   ])
   const active = (href: string) => router.path === href || router.path.startsWith(href + '/')

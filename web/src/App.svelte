@@ -61,6 +61,8 @@
           <Profile />
         {:else if router.path === '/usage'}
           <Usage />
+        {:else if (router.path === '/listings' || listingId !== null) && !session.canListFiles()}
+          <NotFound />
         {:else if router.path === '/listings'}
           <Listings />
         {:else if listingId !== null}

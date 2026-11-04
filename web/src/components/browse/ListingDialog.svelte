@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { api, ApiError } from '../../lib/api/client'
-  import type { ListingCreated, ListingRequest } from '../../lib/api/types'
+  import type { ListingCreated, ListingRequest, Node } from '../../lib/api/types'
+  import { browse } from '../../lib/browse.svelte'
   import { parseBytes } from '../../lib/format'
   import { t } from '../../lib/i18n/en'
   import { rememberListing } from '../../lib/listings'
@@ -36,6 +37,12 @@
   const ageError = $derived(ageValue === null || (ageValue !== undefined && ageValue > 36500) ? t.listing.ageBad : null)
   const invalid = $derived(!!(extError || sizeError || ageError))
 
+  /** The folder's path (its name at a root's top), for the listing's display name. */
+  async function folderOf(r: string): Promise<string | undefined> {
+    const n = browse.node?.ref === r ? browse.node : await api.get<Node>(`/nodes/${r}`).catch(() => null)
+    return n ? n.rel_path || n.name : undefined
+  }
+
   async function submit(e: Event) {
     e.preventDefault()
     if (invalid || submitting) return
@@ -47,7 +54,13 @@
     if (ageValue !== undefined && ageValue !== null) body.min_age_days = ageValue
     try {
       const r = await api.post<ListingCreated>('/listings', body)
-      rememberListing(r.id)
+      rememberListing(r.id, {
+        where: await folderOf(ref),
+        mode,
+        exts: body.exts,
+        minSize: body.min_size,
+        minAgeDays: body.min_age_days,
+      })
       onclose()
       navigate(`/listings/${r.id}`)
     } catch (err) {

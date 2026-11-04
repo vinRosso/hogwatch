@@ -25,7 +25,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 16px;
+    /* Optical centre: the block sits a little above the geometric middle, which looks low. */
+    padding: 0 16px 12vh;
   }
   .stack {
     width: 100%;
