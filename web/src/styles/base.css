@@ -10,3 +10,5 @@ button,input,select,textarea{font:inherit;color:inherit}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+/* Thin paper-toned scrollbars; the standard properties only, so the width is the same everywhere (list headers reserve it). */
+*{scrollbar-width:thin;scrollbar-color:var(--ink-3) transparent}
