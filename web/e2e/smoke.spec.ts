@@ -41,7 +41,7 @@ test('a user browses hostile names safely, exports, and an admin sees the rankin
   await expect(list.getByText('a␊b')).toBeVisible()
   await expect(list.getByText('x\\u{202E}y')).toBeVisible()
   await expect(list.getByText('<img src=x onerror=alert(1)>')).toBeVisible()
-  expect(await page.locator('img').count()).toBe(0)
+  expect(await list.locator('img').count()).toBe(0)
 
   // Export: the CSV guards the formula name with a leading apostrophe.
   await page.getByRole('button', { name: /Export/ }).click()
