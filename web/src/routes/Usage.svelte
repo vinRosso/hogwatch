@@ -5,10 +5,13 @@
   import { displayName } from '../lib/fname'
   import { formatBytes } from '../lib/format'
   import { t } from '../lib/i18n/en'
+  import { rootColor } from '../lib/rootColor'
   import { router, setQuery } from '../lib/router.svelte'
   import { session } from '../lib/session.svelte'
+  import { share, sortPaths, type PathSort } from '../lib/usageView'
   import QuotaBar from '../components/shell/QuotaBar.svelte'
   import Card from '../components/ui/Card.svelte'
+  import Donut, { partsOf } from '../components/ui/Donut.svelte'
   import EmptyState from '../components/ui/EmptyState.svelte'
   import GrowthFigure from '../components/ui/GrowthFigure.svelte'
   import Pill from '../components/ui/Pill.svelte'
@@ -44,6 +47,31 @@
   })
 
   const rootName = (id: number) => session.roots.find((r) => r.id === id)?.name
+
+  let by = $state<PathSort>('size')
+  const sorts: PathSort[] = ['size', 'name']
+  const sortLabel = { size: t.usage.sortSize, name: t.usage.sortName }
+
+  const total = $derived(usage?.total.bytes_alloc ?? 0)
+  const pct = (bytes: number) => `${Math.round(share(bytes, total) * 100)} %`
+  const folders = $derived(usage ? sortPaths(usage.paths, by, (p) => displayName(p.host_path)) : [])
+  // One root is a full ring and says nothing a bar does not; the donut is for comparing roots.
+  const parts = $derived(
+    usage && usage.mounts.length > 1
+      ? partsOf(
+          usage.mounts.map((m) => ({
+            name: displayName(m.root_name),
+            color: rootColor(m.root_id),
+            bytes: m.usage.bytes_alloc,
+            gauge:
+              m.fs_total !== null && m.fs_free !== null && m.fs_total > 0
+                ? { fraction: (m.fs_total - m.fs_free) / m.fs_total, limit: formatBytes(m.fs_total) }
+                : undefined,
+          })),
+          t.usage.other,
+        )
+      : [],
+  )
 </script>
 
 <section class="page">
@@ -68,13 +96,28 @@
     <EmptyState title={t.usage.title} body={t.usage.empty} />
   {:else}
     <Card title={t.usage.total}>
-      <QuotaBar big />
-      <dl class="tot">
-        <dt>{t.usage.allocated}</dt>
-        <dd class="mono">{formatBytes(usage.total.bytes_alloc)}</dd>
-        <dt>{t.usage.growth} ({t.history.windows[win]})</dt>
-        <dd><GrowthFigure bytes={usage.growth_bytes} /></dd>
-      </dl>
+      <div class="hero" class:split={parts.length > 0}>
+        <div class="main">
+          <QuotaBar big />
+          <dl class="tiles">
+            <div class="tile">
+              <dt>{t.usage.allocated}</dt>
+              <dd class="mono">{formatBytes(usage.total.bytes_alloc)}</dd>
+            </div>
+            <div class="tile">
+              <dt>{t.usage.growth} ({t.history.windows[win]})</dt>
+              <dd><GrowthFigure bytes={usage.growth_bytes} /></dd>
+            </div>
+            <div class="tile">
+              <dt>{t.usage.files}</dt>
+              <dd class="mono">{usage.total.files.toLocaleString()}</dd>
+            </div>
+          </dl>
+        </div>
+        {#if parts.length > 0}
+          <Donut {parts} caption={t.usage.allocated} label={t.usage.chart} />
+        {/if}
+      </div>
     </Card>
 
     <Card title={t.usage.mounts}>
@@ -82,9 +125,12 @@
         {#each usage.mounts as m (m.root_id)}
           <li>
             <div class="line">
-              <strong><RootName id={m.root_id} name={m.root_name} /></strong>
+              <strong class="p"><RootName id={m.root_id} name={m.root_name} /></strong>
               <span class="mono">{formatBytes(m.usage.bytes_alloc)}</span>
               <GrowthFigure bytes={m.growth_bytes} />
+            </div>
+            <div class="bar" role="img" aria-label={t.usage.share(pct(m.usage.bytes_alloc))}>
+              <span style:width={`${share(m.usage.bytes_alloc, total) * 100}%`} style:--fill={rootColor(m.root_id)}></span>
             </div>
             {#if m.fs_total !== null && m.fs_free !== null}
               <div class="sub">{t.usage.fs(formatBytes(m.fs_free), formatBytes(m.fs_total))}</div>
@@ -98,8 +144,15 @@
     </Card>
 
     <Card title={t.usage.paths}>
+      {#snippet actions()}
+        <div class="win" role="group" aria-label={t.usage.sort}>
+          {#each sorts as s (s)}
+            <button class:on={by === s} aria-pressed={by === s} onclick={() => (by = s)}>{sortLabel[s]}</button>
+          {/each}
+        </div>
+      {/snippet}
       <ul class="list">
-        {#each usage.paths as p (p.user_path_id)}
+        {#each folders as p (p.user_path_id)}
           <li>
             <div class="line">
               <span class="p" style="unicode-bidi: isolate" title={displayName(p.host_path)}>{displayName(p.host_path)}</span>
@@ -107,6 +160,9 @@
               <span class="mono">{formatBytes(p.usage.bytes_alloc)}</span>
               {#if !p.found}<Pill tone="warn">{t.usage.notFound}</Pill>{/if}
               {#if p.redundant}<Pill>{t.usage.redundant}</Pill>{/if}
+            </div>
+            <div class="bar" role="img" aria-label={t.usage.share(pct(p.usage.bytes_alloc))}>
+              <span style:width={`${share(p.usage.bytes_alloc, total) * 100}%`} style:--fill={rootColor(p.root_id)}></span>
             </div>
           </li>
         {/each}
@@ -121,6 +177,7 @@
     display: grid;
     gap: 16px;
     max-width: 960px;
+    margin-inline: auto;
   }
   .top {
     display: flex;
@@ -147,15 +204,39 @@
     background: var(--ink);
     color: var(--paper);
   }
-  .tot {
+  .hero {
     display: grid;
-    grid-template-columns: auto auto;
-    justify-content: start;
-    gap: 2px 18px;
+    gap: 16px;
+  }
+  .hero.split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  @media (max-width: 720px) {
+    .hero.split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     margin: 12px 0 0;
   }
+  .tile {
+    flex: 1 1 120px;
+    padding: 8px 12px;
+    background: var(--sunk);
+    border-radius: var(--r);
+  }
+  dt {
+    color: var(--ink-2);
+    font-size: 12px;
+  }
   dd {
-    margin: 0;
+    margin: 2px 0 0;
+    font-size: 16px;
+    font-weight: 600;
   }
   .list {
     list-style: none;
@@ -163,8 +244,10 @@
     padding: 0;
   }
   li {
-    padding: 6px 0;
+    padding: 8px 0;
     border-bottom: 1px solid var(--hair);
+    display: grid;
+    gap: 4px;
   }
   .line {
     display: flex;
@@ -178,6 +261,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--sunk);
+    overflow: hidden;
+  }
+  .bar span {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    background: var(--fill);
   }
   .root,
   .sub {

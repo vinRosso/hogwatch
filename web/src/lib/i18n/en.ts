@@ -217,6 +217,13 @@ export const t = {
     allocated: 'Allocated',
     empty: 'No usage yet. It appears after the first scan.',
     failed: 'Could not load your usage.',
+    files: 'Files',
+    chart: 'Your allocated space by root',
+    other: 'Other',
+    sort: 'Sort folders',
+    sortSize: 'Size',
+    sortName: 'Name',
+    share: (pct: string) => `${pct} of your total`,
   },
   listing: {
     title: 'File listing',
